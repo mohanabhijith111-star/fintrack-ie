@@ -187,7 +187,6 @@ function detectRecurring(transactions) {
   return results.sort((a, b) => b.dates.length - a.dates.length);
 }
 
-const INCOME_CATS = new Set(BUILTIN_OVERHEAD_GROUPS["Income"]);
 
 // ─── IRISH BANK HOLIDAYS 2026 ─────────────────────────────────────────────────
 const IE_BANK_HOLIDAYS = new Set(["2026-01-01","2026-02-02","2026-03-17","2026-04-03","2026-04-06","2026-05-04","2026-06-01","2026-08-03","2026-10-26","2026-12-25","2026-12-26"]);
@@ -851,8 +850,8 @@ export default function App() {
   const fileRef = useRef();
 
   // Payroll — pre-filled with mock PAYE data
-  const [salary, setSalary] = useState(() => localStorage.getItem("ft_salary") || "");
-  const [firstPayday, setFirstPayday] = useState(() => localStorage.getItem("ft_firstPayday") || "");
+  const [salary, setSalary] = useState(() => { try { return localStorage.getItem("ft_salary") || ""; } catch { return ""; } });
+  const [firstPayday, setFirstPayday] = useState(() => { try { return localStorage.getItem("ft_firstPayday") || ""; } catch { return ""; } });
   const [taxProfile, setTaxProfile] = useState(() => {
     try { const s = localStorage.getItem("ft_taxProfile"); if (s) return JSON.parse(s); } catch {}
     return { maritalStatus: "single", customCutoff: "", payFrequency: "fortnightly", personalCredit: 2000, employeeCredit: 2000, earnedIncomeCredit: 0, homeCarerCredit: 0, singlePersonChildCarerCredit: 0, rentCredit: 0, otherCredits: 0, publicService: false, pensionRate: 6.5, ascScheme: "standard", afterTaxDeduction: 0 };
