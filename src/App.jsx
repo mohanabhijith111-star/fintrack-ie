@@ -841,9 +841,6 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
   useEffect(() => { try { localStorage.setItem("ft_rules", JSON.stringify(rules)); } catch {} }, [rules]);
   useEffect(() => { try { localStorage.setItem("ft_customOverheads", JSON.stringify(customOverheads)); } catch {} }, [customOverheads]);
-  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
-  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
-  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
   const [importQueue, setImportQueue] = useState([]); // transactions waiting to be confirmed
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
@@ -857,6 +854,10 @@ export default function App() {
     return { maritalStatus: "single", customCutoff: "", payFrequency: "fortnightly", personalCredit: 2000, employeeCredit: 2000, earnedIncomeCredit: 0, homeCarerCredit: 0, singlePersonChildCarerCredit: 0, rentCredit: 0, otherCredits: 0, publicService: false, pensionRate: 6.5, ascScheme: "standard", afterTaxDeduction: 0 };
   });
   const [paydaysAdded, setPaydaysAdded] = useState(false);
+
+  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
+  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
+  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
 
   // Committed form
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", amount: "", currency: "EUR", startDate: today(), recurrence: "monthly", isFixed: true, note: "" });
