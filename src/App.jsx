@@ -611,7 +611,7 @@ async function categoriseTransactions(transactions, rules) {
   // Batch uncategorised for Claude
   const uncategorised = withRules.filter(tx => !tx.category);
   if (uncategorised.length === 0) return withRules;
-  const catList = ALL_CATEGORIES.map(c => c.label).join(", ");
+  const catList = Object.values(BUILTIN_OVERHEAD_GROUPS).flat().join(", ");
   const txList = uncategorised.slice(0, 40).map((tx, i) => `${i + 1}. "${tx.description}" (${tx.isCredit ? "credit" : "debit"} ${fmt(tx.amount)})`).join("\n");
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
