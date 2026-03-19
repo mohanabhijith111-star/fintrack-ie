@@ -823,7 +823,7 @@ const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
   { id: "budgeting", label: "Budgeting", icon: Target },
-  { id: "monthly", label: "Monthly", icon: TrendingDown },
+  { id: "analytics", label: "Analytics", icon: TrendingDown },
   { id: "committed", label: "Committed", icon: Calendar },
   { id: "debt", label: "Debt", icon: CreditCard },
   { id: "planner", label: "Planner", icon: TrendingUp },
@@ -1781,8 +1781,8 @@ export default function App() {
         )}
 
         {/* ══ MONTHLY ════════════════════════════════════════════════════════════ */}
-        {tab === "monthly" && (
-          <MonthlyTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} />
+        {tab === "analytics" && (
+          <AnalyticsTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
         )}
 
         {/* ══ DEBT ══════════════════════════════════════════════════════════════ */}
@@ -3272,8 +3272,8 @@ function DriveSync() {
       {!isSignedIn ? (
         <button onClick={signIn} disabled={status === 'syncing'}
           style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Sync Drive
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          Refresh
         </button>
       ) : (
         <div style={{ display: 'flex', gap: 4 }}>
@@ -3294,6 +3294,536 @@ function DriveSync() {
     </div>
   );
 }
+
+// ─── ANALYTICS TAB ───────────────────────────────────────────────────────────
+function AnalyticsTab({ transactions, overheadGroups, committed }) {
+  const [view, setView] = useState('overview'); // overview | categories | merchants | compare | savings
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const [selectedCat, setSelectedCat] = useState(null);
+  const [compareA, setCompareA] = useState('');
+  const [compareB, setCompareB] = useState('');
+
+  // ── Core data derivations ──────────────────────────────────────────────────
+  const months = useMemo(() => {
+    const map = {};
+    transactions.forEach(tx => {
+      if (!tx.date) return;
+      const m = tx.date.substring(0, 7);
+      if (!map[m]) map[m] = { income: 0, expenses: 0, byCategory: {}, byGroup: {}, txs: [], incomeBySource: {} };
+      if (tx.isCredit && !tx.isPAYE) {
+        map[m].income += tx.amount;
+        const src = tx.category || tx.description?.split(' ')[0] || 'Other';
+        map[m].incomeBySource[src] = (map[m].incomeBySource[src] || 0) + tx.amount;
+      } else if (!tx.isCredit) {
+        map[m].expenses += tx.amount;
+        if (tx.category) {
+          map[m].byCategory[tx.category] = (map[m].byCategory[tx.category] || 0) + tx.amount;
+          let g = 'Other';
+          for (const [grp, cats] of Object.entries(overheadGroups)) { if (cats.includes(tx.category)) { g = grp; break; } }
+          map[m].byGroup[g] = (map[m].byGroup[g] || 0) + tx.amount;
+        }
+        map[m].txs.push(tx);
+      }
+    });
+    return Object.entries(map)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([m, d]) => ({
+        key: m,
+        label: new Date(m + '-01').toLocaleDateString('en-IE', { month: 'short', year: 'numeric' }),
+        shortLabel: new Date(m + '-01').toLocaleDateString('en-IE', { month: 'short' }),
+        ...d,
+        net: d.income - d.expenses,
+        savingsRate: d.income > 0 ? ((d.income - d.expenses) / d.income * 100) : 0,
+      }));
+  }, [transactions, overheadGroups]);
+
+  const allCategories = useMemo(() => {
+    const map = {};
+    transactions.filter(t => !t.isCredit && t.category).forEach(tx => {
+      if (!map[tx.category]) map[tx.category] = { total: 0, count: 0, months: {}, txs: [] };
+      map[tx.category].total += tx.amount;
+      map[tx.category].count++;
+      map[tx.category].txs.push(tx);
+      const m = tx.date?.substring(0, 7);
+      if (m) map[tx.category].months[m] = (map[tx.category].months[m] || 0) + tx.amount;
+    });
+    return Object.entries(map)
+      .sort((a, b) => b[1].total - a[1].total)
+      .map(([cat, d]) => {
+        const monthlyVals = Object.values(d.months);
+        const avg = monthlyVals.length ? monthlyVals.reduce((s, v) => s + v, 0) / monthlyVals.length : 0;
+        const max = Math.max(...monthlyVals, 0);
+        const min = Math.min(...monthlyVals, 0);
+        return { cat, ...d, avg, max, min, monthCount: monthlyVals.length };
+      });
+  }, [transactions]);
+
+  const topMerchants = useMemo(() => {
+    const map = {};
+    transactions.filter(t => !t.isCredit).forEach(tx => {
+      const key = tx.description?.substring(0, 30) || 'Unknown';
+      if (!map[key]) map[key] = { total: 0, count: 0, category: tx.category || '' };
+      map[key].total += tx.amount;
+      map[key].count++;
+      if (tx.category && !map[key].category) map[key].category = tx.category;
+    });
+    return Object.entries(map).sort((a, b) => b[1].total - a[1].total).slice(0, 20)
+      .map(([name, d]) => ({ name, ...d }));
+  }, [transactions]);
+
+  const committedMonthly = useMemo(() => {
+    return committed.filter(c => c.currency === 'EUR').reduce((s, c) => {
+      const rec = RECURRENCES.find(r => r.v === c.recurrence);
+      return s + (parseFloat(c.amount) || 0) * (rec?.ppy || 0) / 12;
+    }, 0);
+  }, [committed]);
+
+  const avgMonthly = useMemo(() => {
+    if (!months.length) return { income: 0, expenses: 0, net: 0 };
+    return {
+      income: months.reduce((s, m) => s + m.income, 0) / months.length,
+      expenses: months.reduce((s, m) => s + m.expenses, 0) / months.length,
+      net: months.reduce((s, m) => s + m.net, 0) / months.length,
+    };
+  }, [months]);
+
+  const maxExpense = Math.max(...months.map(m => m.expenses), 1);
+  const maxIncome = Math.max(...months.map(m => m.income), 1);
+  const maxBar = Math.max(maxExpense, maxIncome);
+
+  // View tabs
+  const views = [
+    { id: 'overview', label: 'Overview' },
+    { id: 'categories', label: 'Categories' },
+    { id: 'merchants', label: 'Merchants' },
+    { id: 'compare', label: 'Compare' },
+    { id: 'savings', label: 'Savings' },
+  ];
+
+  if (!months.length) return (
+    <div style={{ ...S.card, padding: 40, textAlign: 'center', color: T.textDim }}>
+      No data yet. Import bank statements to see analytics.
+    </div>
+  );
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* View selector */}
+      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+        {views.map(v => (
+          <button key={v.id} onClick={() => { setView(v.id); setSelectedMonth(null); setSelectedCat(null); }}
+            style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${view === v.id ? T.accent : T.border}`, background: view === v.id ? T.accent + '20' : 'transparent', color: view === v.id ? T.accent : T.textMid, fontSize: 12, fontWeight: view === v.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
+            {v.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── OVERVIEW ── */}
+      {view === 'overview' && (
+        <>
+          {/* Summary KPIs */}
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+            {[
+              { l: 'Avg Income/mo', v: fmt(avgMonthly.income), c: T.green },
+              { l: 'Avg Spend/mo', v: fmt(avgMonthly.expenses), c: T.red },
+              { l: 'Avg Net/mo', v: fmt(avgMonthly.net), c: avgMonthly.net >= 0 ? T.green : T.red },
+              { l: 'Committed/mo', v: fmt(committedMonthly), c: T.accent },
+              { l: 'Discretionary', v: fmt(Math.max(0, avgMonthly.expenses - committedMonthly)), c: T.textMid },
+              { l: 'Months tracked', v: months.length.toString(), c: T.text },
+            ].map(({ l, v, c }) => (
+              <div key={l} style={{ ...S.card, padding: '12px 16px' }}>
+                <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 4 }}>{l}</div>
+                <div style={{ fontSize: 18, fontWeight: 700, color: c }}>{v}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Bar chart */}
+          <div style={{ ...S.card, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+              <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>Income vs Expenses</div>
+              <div style={{ display: 'flex', gap: 12, fontSize: 11, color: T.textDim }}>
+                <span><span style={{ display: 'inline-block', width: 10, height: 10, background: T.green + '80', borderRadius: 2, marginRight: 4 }} />Income</span>
+                <span><span style={{ display: 'inline-block', width: 10, height: 10, background: T.red + '80', borderRadius: 2, marginRight: 4 }} />Expenses</span>
+              </div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: 8, minWidth: months.slice(0, 12).length * 80, paddingBottom: 8 }}>
+                {months.slice(0, 12).reverse().map(m => {
+                  const expPct = (m.expenses / maxBar) * 100;
+                  const incPct = (m.income / maxBar) * 100;
+                  const isSel = selectedMonth === m.key;
+                  return (
+                    <div key={m.key} onClick={() => setSelectedMonth(isSel ? null : m.key)}
+                      style={{ flex: 1, minWidth: 56, cursor: 'pointer', opacity: selectedMonth && !isSel ? 0.4 : 1, transition: 'opacity 0.2s' }}>
+                      <div style={{ height: 120, display: 'flex', alignItems: 'flex-end', gap: 3, marginBottom: 6, position: 'relative' }}>
+                        {/* Net indicator line */}
+                        {m.net !== 0 && (
+                          <div style={{ position: 'absolute', top: ((1 - Math.max(incPct, expPct) / 100) * 120) + 'px', left: 0, right: 0, height: 1, background: m.net >= 0 ? T.green + '40' : T.red + '40', borderTop: `1px dashed ${m.net >= 0 ? T.green : T.red}40` }} />
+                        )}
+                        <div style={{ flex: 1, background: T.green + '70', borderRadius: '3px 3px 0 0', height: incPct + '%', minHeight: m.income > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.green}` : 'none' }} />
+                        <div style={{ flex: 1, background: m.expenses > m.income ? T.red + '80' : T.red + '50', borderRadius: '3px 3px 0 0', height: expPct + '%', minHeight: m.expenses > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.red}` : 'none' }} />
+                      </div>
+                      <div style={{ fontSize: 9, color: isSel ? T.accent : T.textDim, textAlign: 'center', whiteSpace: 'nowrap', fontWeight: isSel ? 700 : 400 }}>{m.shortLabel}</div>
+                      <div style={{ fontSize: 9, color: m.net >= 0 ? T.green : T.red, textAlign: 'center', fontWeight: 600 }}>{m.net >= 0 ? '+' : ''}{fmt(m.net)}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+
+          {/* Month detail */}
+          {selectedMonth && (() => {
+            const m = months.find(x => x.key === selectedMonth);
+            if (!m) return null;
+            const topCats = Object.entries(m.byCategory).sort((a, b) => b[1] - a[1]);
+            const topGroups = Object.entries(m.byGroup).sort((a, b) => b[1] - a[1]);
+            const maxG = Math.max(...topCats.map(([, v]) => v), 1);
+            const discretionary = Math.max(0, m.expenses - committedMonthly);
+            return (
+              <div style={{ ...S.card, padding: '16px 20px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
+                  <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{m.label} — Detail</div>
+                  <button onClick={() => setSelectedMonth(null)} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', fontSize: 18 }}>×</button>
+                </div>
+                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
+                  {[
+                    { l: 'Income', v: fmt(m.income), c: T.green },
+                    { l: 'Expenses', v: fmt(m.expenses), c: T.red },
+                    { l: 'Net', v: (m.net >= 0 ? '+' : '') + fmt(m.net), c: m.net >= 0 ? T.green : T.red },
+                    { l: 'Savings Rate', v: m.savingsRate.toFixed(1) + '%', c: m.savingsRate >= 0 ? T.green : T.red },
+                    { l: 'Committed', v: fmt(committedMonthly), c: T.accent },
+                    { l: 'Discretionary', v: fmt(discretionary), c: T.textMid },
+                  ].map(({ l, v, c }) => (
+                    <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: '8px 12px' }}>
+                      <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div>
+                      <div style={{ fontSize: 14, fontWeight: 700, color: c }}>{v}</div>
+                    </div>
+                  ))}
+                </div>
+                {topCats.length > 0 && (
+                  <>
+                    <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8, fontWeight: 600 }}>SPENDING BY CATEGORY</div>
+                    {topCats.slice(0, 8).map(([cat, val]) => (
+                      <div key={cat} style={{ marginBottom: 8, cursor: 'pointer' }} onClick={() => { setSelectedCat(cat); setView('categories'); }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 3 }}>
+                          <span style={{ fontSize: 12, color: T.textMid }}>{cat}</span>
+                          <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{fmt(val)}</span>
+                        </div>
+                        <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
+                          <div style={{ height: '100%', width: (val / maxG * 100) + '%', background: T.accent, borderRadius: 2 }} />
+                        </div>
+                      </div>
+                    ))}
+                    {topCats.length > 8 && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>+{topCats.length - 8} more categories</div>}
+                  </>
+                )}
+              </div>
+            );
+          })()}
+
+          {/* Month comparison table */}
+          <div style={{ ...S.card, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+              <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Month-by-Month</div>
+            </div>
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+                <thead>
+                  <tr style={{ background: T.surfaceHigh }}>
+                    {['Month', 'Income', 'Expenses', 'Net', 'Savings %', 'Txns'].map(h => (
+                      <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Month' ? 'left' : 'right', color: T.textDim, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {months.map(m => (
+                    <tr key={m.key} onClick={() => setSelectedMonth(selectedMonth === m.key ? null : m.key)}
+                      style={{ borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: selectedMonth === m.key ? T.accent + '10' : 'transparent' }}>
+                      <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: m.net >= 0 ? T.green : T.red, fontWeight: 700 }}>{m.net >= 0 ? '+' : ''}{fmt(m.net)}</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: m.savingsRate >= 0 ? T.green : T.red }}>{m.savingsRate.toFixed(1)}%</td>
+                      <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textDim }}>{m.txs.length}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ── CATEGORIES ── */}
+      {view === 'categories' && (
+        <>
+          <div style={{ ...S.card, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+              <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>All Categories — Total Spend</div>
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Click any category to drill down</div>
+            </div>
+            {allCategories.map(({ cat, total, count, avg, monthCount, txs }) => {
+              const maxTotal = allCategories[0]?.total || 1;
+              const isSel = selectedCat === cat;
+              return (
+                <div key={cat}>
+                  <div className="row-hover" onClick={() => setSelectedCat(isSel ? null : cat)}
+                    style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: isSel ? T.accent + '08' : 'transparent' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
+                      <div>
+                        <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{cat}</span>
+                        <span style={{ fontSize: 11, color: T.textDim, marginLeft: 8 }}>{count} transactions · {monthCount} month{monthCount !== 1 ? 's' : ''}</span>
+                      </div>
+                      <div style={{ textAlign: 'right' }}>
+                        <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{fmt(total)}</div>
+                        <div style={{ fontSize: 10, color: T.textDim }}>~{fmt(avg)}/mo avg</div>
+                      </div>
+                    </div>
+                    <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
+                      <div style={{ height: '100%', width: (total / maxTotal * 100) + '%', background: T.accent, borderRadius: 2 }} />
+                    </div>
+                  </div>
+                  {isSel && (
+                    <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
+                      <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8, fontWeight: 600 }}>RECENT TRANSACTIONS IN {cat.toUpperCase()}</div>
+                      {txs.sort((a, b) => b.date?.localeCompare(a.date)).slice(0, 8).map(tx => (
+                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${T.border}` }}>
+                          <div>
+                            <div style={{ fontSize: 12, color: T.text }}>{tx.description}</div>
+                            <div style={{ fontSize: 10, color: T.textDim }}>{tx.date}</div>
+                          </div>
+                          <span style={{ fontSize: 13, fontWeight: 600, color: T.red, flexShrink: 0, marginLeft: 8 }}>{fmt(tx.amount)}</span>
+                        </div>
+                      ))}
+                      {txs.length > 8 && <div style={{ fontSize: 11, color: T.textDim, marginTop: 6 }}>+{txs.length - 8} more transactions</div>}
+                      {/* Month breakdown for this category */}
+                      <div style={{ marginTop: 10, fontSize: 11, color: T.textDim, fontWeight: 600, marginBottom: 6 }}>MONTH BY MONTH</div>
+                      {months.map(m => {
+                        const v = m.byCategory[cat];
+                        if (!v) return null;
+                        return (
+                          <div key={m.key} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', fontSize: 12 }}>
+                            <span style={{ color: T.textMid }}>{m.label}</span>
+                            <span style={{ color: T.text, fontWeight: 600 }}>{fmt(v)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+            {allCategories.length === 0 && (
+              <div style={{ padding: 40, textAlign: 'center', color: T.textDim, fontSize: 13 }}>No categorised transactions yet.</div>
+            )}
+          </div>
+        </>
+      )}
+
+      {/* ── MERCHANTS ── */}
+      {view === 'merchants' && (
+        <div style={{ ...S.card, overflow: 'hidden' }}>
+          <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+            <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Top Merchants by Spend</div>
+          </div>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: T.surfaceHigh }}>
+                  {['#', 'Merchant', 'Category', 'Visits', 'Total', 'Avg/visit'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === '#' || h === 'Visits' || h === 'Total' || h === 'Avg/visit' ? 'right' : 'left', color: T.textDim, fontWeight: 600, whiteSpace: 'nowrap' }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {topMerchants.map(({ name, total, count, category }, i) => (
+                  <tr key={name} style={{ borderBottom: `1px solid ${T.border}` }}>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textDim, width: 30 }}>{i + 1}</td>
+                    <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</td>
+                    <td style={{ padding: '9px 12px', color: T.textDim }}>{category || <span style={{ color: T.accent, fontSize: 11 }}>uncategorised</span>}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textDim }}>{count}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red, fontWeight: 700 }}>{fmt(total)}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textMid }}>{fmt(total / count)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ── COMPARE ── */}
+      {view === 'compare' && (
+        <>
+          <div style={{ ...S.card, padding: '16px 20px' }}>
+            <div className="hn" style={{ fontSize: 13, fontWeight: 700, marginBottom: 12 }}>Month vs Month Comparison</div>
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+              {[{ label: 'Month A', val: compareA, set: setCompareA }, { label: 'Month B', val: compareB, set: setCompareB }].map(({ label, val, set }) => (
+                <div key={label}>
+                  <div style={{ fontSize: 11, color: T.textDim, marginBottom: 4 }}>{label}</div>
+                  <select value={val} onChange={e => set(e.target.value)} style={{ ...S.input, fontSize: 12 }}>
+                    <option value="">Select month...</option>
+                    {months.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
+                  </select>
+                </div>
+              ))}
+            </div>
+          </div>
+          {compareA && compareB && compareA !== compareB && (() => {
+            const mA = months.find(m => m.key === compareA);
+            const mB = months.find(m => m.key === compareB);
+            if (!mA || !mB) return null;
+            const allCats = new Set([...Object.keys(mA.byCategory), ...Object.keys(mB.byCategory)]);
+            return (
+              <div style={{ ...S.card, overflow: 'hidden' }}>
+                <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
+                  <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>{mA.label} vs {mB.label}</div>
+                </div>
+                {/* Totals */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: `1px solid ${T.border}` }}>
+                  {[
+                    { l: 'Metric', vA: mA.label, vB: mB.label, header: true },
+                    { l: 'Income', vA: fmt(mA.income), vB: fmt(mB.income), dif: mB.income - mA.income, isGoodUp: true },
+                    { l: 'Expenses', vA: fmt(mA.expenses), vB: fmt(mB.expenses), dif: mB.expenses - mA.expenses, isGoodUp: false },
+                    { l: 'Net', vA: fmt(mA.net), vB: fmt(mB.net), dif: mB.net - mA.net, isGoodUp: true },
+                    { l: 'Savings %', vA: mA.savingsRate.toFixed(1) + '%', vB: mB.savingsRate.toFixed(1) + '%', dif: mB.savingsRate - mA.savingsRate, isGoodUp: true },
+                  ].map(({ l, vA, vB, dif, isGoodUp, header }) => (
+                    <div key={l} style={{ display: 'contents' }}>
+                      <div style={{ padding: '10px 16px', fontSize: header ? 10 : 12, color: header ? T.textDim : T.textMid, fontWeight: header ? 600 : 400, borderBottom: `1px solid ${T.border}`, textTransform: header ? 'uppercase' : 'none' }}>{l}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>{vA}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: dif !== undefined ? (isGoodUp ? (dif >= 0 ? T.green : T.red) : (dif <= 0 ? T.green : T.red)) : T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>
+                        {vB}{dif !== undefined && dif !== 0 && <span style={{ fontSize: 10, marginLeft: 4 }}>({dif >= 0 ? '+' : ''}{typeof dif === 'number' && Math.abs(dif) < 200 ? dif.toFixed(1) + (l.includes('%') ? 'pp' : '') : fmt(Math.abs(dif))})</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+                {/* Category comparison */}
+                <div style={{ padding: '12px 20px 0' }}>
+                  <div style={{ fontSize: 11, color: T.textDim, fontWeight: 600, marginBottom: 8 }}>CATEGORY BREAKDOWN</div>
+                  {[...allCats].sort((a, b) => Math.max(mB.byCategory[b] || 0, mA.byCategory[b] || 0) - Math.max(mA.byCategory[a] || 0, mB.byCategory[a] || 0)).map(cat => {
+                    const vA = mA.byCategory[cat] || 0;
+                    const vB = mB.byCategory[cat] || 0;
+                    const diff = vB - vA;
+                    const maxV = Math.max(vA, vB, 1);
+                    return (
+                      <div key={cat} style={{ marginBottom: 10 }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                          <span style={{ fontSize: 12, color: T.textMid }}>{cat}</span>
+                          <span style={{ fontSize: 11, color: diff > 0 ? T.red : diff < 0 ? T.green : T.textDim, fontWeight: 600 }}>
+                            {diff !== 0 ? (diff > 0 ? '+' : '') + fmt(diff) : 'same'}
+                          </span>
+                        </div>
+                        <div style={{ display: 'flex', gap: 4 }}>
+                          <div style={{ flex: 1, height: 6, background: T.border, borderRadius: 2, position: 'relative' }}>
+                            <div style={{ position: 'absolute', height: '100%', width: (vA / maxV * 100) + '%', background: T.blue + '80', borderRadius: 2 }} />
+                          </div>
+                          <div style={{ flex: 1, height: 6, background: T.border, borderRadius: 2, position: 'relative' }}>
+                            <div style={{ position: 'absolute', height: '100%', width: (vB / maxV * 100) + '%', background: T.accent + '80', borderRadius: 2 }} />
+                          </div>
+                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', marginTop: 2 }}>
+                          <span style={{ fontSize: 10, color: T.textDim }}>{fmt(vA)}</span>
+                          <span style={{ fontSize: 10, color: T.textDim }}>{fmt(vB)}</span>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            );
+          })()}
+        </>
+      )}
+
+      {/* ── SAVINGS RATE ── */}
+      {view === 'savings' && (
+        <>
+          <div style={{ ...S.card, padding: '16px 20px' }}>
+            <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Savings Analysis</div>
+            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>How much of your income you're saving each month</div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
+              {(() => {
+                const posMonths = months.filter(m => m.savingsRate > 0);
+                const avgRate = months.length ? months.reduce((s, m) => s + m.savingsRate, 0) / months.length : 0;
+                const bestMonth = months.reduce((b, m) => m.savingsRate > b.savingsRate ? m : b, months[0]);
+                const worstMonth = months.reduce((b, m) => m.savingsRate < b.savingsRate ? m : b, months[0]);
+                return [
+                  { l: 'Avg Savings Rate', v: avgRate.toFixed(1) + '%', c: avgRate >= 0 ? T.green : T.red },
+                  { l: 'Positive Months', v: posMonths.length + ' / ' + months.length, c: T.text },
+                  { l: 'Best Month', v: bestMonth?.label + ' (' + bestMonth?.savingsRate.toFixed(1) + '%)', c: T.green },
+                  { l: 'Worst Month', v: worstMonth?.label + ' (' + worstMonth?.savingsRate.toFixed(1) + '%)', c: T.red },
+                ].map(({ l, v, c }) => (
+                  <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: '10px 14px' }}>
+                    <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', marginBottom: 4 }}>{l}</div>
+                    <div style={{ fontSize: 13, fontWeight: 700, color: c }}>{v}</div>
+                  </div>
+                ));
+              })()}
+            </div>
+            {/* Savings rate chart */}
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'flex', gap: 8, minWidth: months.slice(0, 12).length * 80, paddingBottom: 8 }}>
+                {months.slice(0, 12).reverse().map(m => {
+                  const rate = Math.max(-100, Math.min(100, m.savingsRate));
+                  const isPos = rate >= 0;
+                  const pct = Math.abs(rate);
+                  return (
+                    <div key={m.key} style={{ flex: 1, minWidth: 56, textAlign: 'center' }}>
+                      <div style={{ height: 100, display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', position: 'relative' }}>
+                        <div style={{ position: 'absolute', top: '50%', left: 0, right: 0, height: 1, background: T.border }} />
+                        {isPos ? (
+                          <div style={{ position: 'absolute', bottom: '50%', left: '20%', right: '20%', height: (pct / 2) + '%', background: T.green + '70', borderRadius: '3px 3px 0 0', minHeight: 2 }} />
+                        ) : (
+                          <div style={{ position: 'absolute', top: '50%', left: '20%', right: '20%', height: (pct / 2) + '%', background: T.red + '70', borderRadius: '0 0 3px 3px', minHeight: 2 }} />
+                        )}
+                      </div>
+                      <div style={{ fontSize: 9, color: T.textDim }}>{m.shortLabel}</div>
+                      <div style={{ fontSize: 9, color: isPos ? T.green : T.red, fontWeight: 600 }}>{rate.toFixed(0)}%</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+          {/* Month by month savings table */}
+          <div style={{ ...S.card, overflow: 'hidden' }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+              <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Monthly Savings Breakdown</div>
+            </div>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
+              <thead>
+                <tr style={{ background: T.surfaceHigh }}>
+                  {['Month', 'Income', 'Expenses', 'Saved', 'Rate'].map(h => (
+                    <th key={h} style={{ padding: '8px 12px', textAlign: h === 'Month' ? 'left' : 'right', color: T.textDim, fontWeight: 600 }}>{h}</th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {months.map(m => (
+                  <tr key={m.key} style={{ borderBottom: `1px solid ${T.border}` }}>
+                    <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right', color: m.net >= 0 ? T.green : T.red, fontWeight: 700 }}>{m.net >= 0 ? '+' : ''}{fmt(m.net)}</td>
+                    <td style={{ padding: '9px 12px', textAlign: 'right' }}>
+                      <span style={{ background: m.savingsRate >= 20 ? T.green + '30' : m.savingsRate >= 0 ? T.accent + '30' : T.red + '30', color: m.savingsRate >= 0 ? (m.savingsRate >= 20 ? T.green : T.accent) : T.red, padding: '2px 8px', borderRadius: 4, fontWeight: 700, fontSize: 11 }}>
+                        {m.savingsRate.toFixed(1)}%
+                      </span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
+
 // ─── BUDGETING TAB ────────────────────────────────────────────────────────────
 function BudgetingTab({ transactions, overheadGroups, committed }) {
   const [period, setPeriod] = useState("thisMonth");
@@ -3390,145 +3920,102 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
   );
 }
 
-// ─── MONTHLY ANALYTICS TAB ───────────────────────────────────────────────────
-function MonthlyTab({ transactions, overheadGroups }) {
-  const months = useMemo(() => {
-    const map = {};
+// ─── BUDGETING TAB ────────────────────────────────────────────────────────────
+function BudgetingTab({ transactions, overheadGroups, committed }) {
+  const [period, setPeriod] = useState("thisMonth");
+  const [budgets, setBudgets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; } });
+  const [editingGroup, setEditingGroup] = useState(null);
+  useEffect(() => { try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {} }, [budgets]);
+  const { from, to, label: periodLabel } = useMemo(() => {
+    const now = new Date();
+    if (period === "thisMonth") return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+    if (period === "lastMonth") { const d = new Date(now.getFullYear(), now.getMonth()-1, 1); return { from: d.toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0], label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) }; }
+    if (period === "last3") return { from: new Date(now.getFullYear(), now.getMonth()-2, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: "Last 3 Months" };
+    return { from: new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), 11, 31).toISOString().split("T")[0], label: `${now.getFullYear()}` };
+  }, [period]);
+  const actualByGroup = useMemo(() => {
+    const r = {};
     transactions.forEach(tx => {
-      if (!tx.date) return;
-      const m = tx.date.substring(0, 7); // "2026-03"
-      if (!map[m]) map[m] = { income: 0, expenses: 0, byGroup: {}, txCount: 0 };
-      if (tx.isCredit && !tx.isPAYE) { map[m].income += tx.amount; }
-      else if (!tx.isCredit) {
-        map[m].expenses += tx.amount;
-        map[m].txCount++;
-        let g = "Other";
-        if (tx.category) for (const [grp, cats] of Object.entries(overheadGroups)) { if (cats.includes(tx.category)) { g = grp; break; } }
-        map[m].byGroup[g] = (map[m].byGroup[g] || 0) + tx.amount;
-      }
+      if (tx.isCredit || !tx.category || tx.date < from || tx.date > to) return;
+      let g = "Other";
+      for (const [grp, cats] of Object.entries(overheadGroups)) { if (cats.includes(tx.category)) { g = grp; break; } }
+      r[g] = (r[g] || 0) + tx.amount;
     });
-    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0])).map(([m, d]) => ({
-      month: m,
-      label: new Date(m + "-01").toLocaleDateString("en-IE", { month: "short", year: "numeric" }),
-      ...d,
-      net: d.income - d.expenses,
-    }));
-  }, [transactions, overheadGroups]);
-
-  const [selectedMonth, setSelectedMonth] = useState(null);
+    return r;
+  }, [transactions, overheadGroups, from, to]);
+  const committedByGroup = useMemo(() => {
+    const r = {};
+    committed.filter(c => c.currency === "EUR").forEach(c => {
+      const rec = RECURRENCES.find(x => x.v === c.recurrence);
+      r[c.group || "Other"] = (r[c.group || "Other"] || 0) + (parseFloat(c.amount)||0) * (rec?.ppy||0) / 12;
+    });
+    return r;
+  }, [committed]);
   const allGroups = useMemo(() => {
-    const gs = new Set(months.flatMap(m => Object.keys(m.byGroup)));
+    const gs = new Set([...Object.keys(actualByGroup), ...Object.keys(budgets), ...Object.keys(committedByGroup)]);
     ["Income","Assets","Liabilities"].forEach(g => gs.delete(g));
     return [...gs].sort();
-  }, [months]);
-
-  if (months.length === 0) return (
-    <div style={{ ...S.card, padding: 40, textAlign: "center", color: T.textDim }}>No transaction data yet. Import a bank statement to see monthly analytics.</div>
-  );
-
-  const maxExpenses = Math.max(...months.map(m => m.expenses), 1);
-
+  }, [actualByGroup, budgets, committedByGroup]);
+  const totalBudget = Object.values(budgets).reduce((s,v) => s+(parseFloat(v)||0), 0);
+  const totalActual = Object.values(actualByGroup).reduce((s,v) => s+v, 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Summary bar chart */}
       <div style={{ ...S.card, padding: "16px 20px" }}>
-        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Monthly Overview</div>
-        <div style={{ overflowX: "auto" }}>
-          <div style={{ display: "flex", gap: 8, minWidth: Math.min(months.length, 12) * 72, paddingBottom: 8 }}>
-            {months.slice(0, 12).reverse().map(m => {
-              const expPct = (m.expenses / maxExpenses) * 100;
-              const incPct = (m.income / maxExpenses) * 100;
-              const isSelected = selectedMonth === m.month;
-              return (
-                <div key={m.month} onClick={() => setSelectedMonth(isSelected ? null : m.month)}
-                  style={{ flex: 1, minWidth: 56, cursor: "pointer", opacity: selectedMonth && !isSelected ? 0.5 : 1 }}>
-                  <div style={{ height: 100, display: "flex", alignItems: "flex-end", gap: 3, marginBottom: 6 }}>
-                    <div style={{ flex: 1, background: T.accent + "60", borderRadius: "3px 3px 0 0", height: incPct + "%", minHeight: m.income > 0 ? 2 : 0, transition: "height 0.3s" }} title={`Income: ${fmt(m.income)}`} />
-                    <div style={{ flex: 1, background: m.expenses > m.income ? T.red + "90" : T.textDim + "60", borderRadius: "3px 3px 0 0", height: expPct + "%", minHeight: m.expenses > 0 ? 2 : 0, transition: "height 0.3s" }} title={`Expenses: ${fmt(m.expenses)}`} />
-                  </div>
-                  <div style={{ fontSize: 9, color: isSelected ? T.accent : T.textDim, textAlign: "center", whiteSpace: "nowrap" }}>{m.label}</div>
-                  <div style={{ fontSize: 9, color: m.net >= 0 ? T.green : T.red, textAlign: "center", fontWeight: 600 }}>{m.net >= 0 ? "+" : ""}{fmt(m.net)}</div>
-                </div>
-              );
-            })}
-          </div>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div><div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
+            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div></div>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
+            <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option>
+            <option value="last3">Last 3 Months</option><option value="thisYear">This Year</option>
+          </select>
         </div>
-        <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: T.textDim }}>
-          <span><span style={{ display: "inline-block", width: 10, height: 10, background: T.accent + "60", borderRadius: 2, marginRight: 4 }} />Income</span>
-          <span><span style={{ display: "inline-block", width: 10, height: 10, background: T.textDim + "60", borderRadius: 2, marginRight: 4 }} />Expenses</span>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
+          {[{l:"Total Budget",v:fmt(totalBudget),c:T.accent},{l:"Total Spent",v:fmt(totalActual),c:totalActual>totalBudget&&totalBudget>0?T.red:T.text},{l:"Remaining",v:fmt(Math.max(0,totalBudget-totalActual)),c:T.green}].map(({l,v,c})=>(
+            <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{l}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: c, marginTop: 2 }}>{v}</div>
+            </div>
+          ))}
         </div>
       </div>
-
-      {/* Month detail */}
-      {selectedMonth && (() => {
-        const m = months.find(x => x.month === selectedMonth);
-        if (!m) return null;
-        const topGroups = Object.entries(m.byGroup).sort((a,b) => b[1]-a[1]);
-        const maxG = Math.max(...topGroups.map(([,v]) => v), 1);
-        return (
-          <div style={{ ...S.card, padding: "16px 20px" }}>
-            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
-              <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>{m.label} Breakdown</div>
-              <button onClick={() => setSelectedMonth(null)} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 18 }}>×</button>
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
-              {[{l:"Income",v:fmt(m.income),c:T.green},{l:"Expenses",v:fmt(m.expenses),c:T.red},{l:"Net",v:(m.net>=0?"+":"")+fmt(m.net),c:m.net>=0?T.green:T.red}].map(({l,v,c})=>(
-                <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
-                  <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase" }}>{l}</div>
-                  <div style={{ fontSize: 16, fontWeight: 700, color: c, marginTop: 2 }}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 10 }}>Spending by category</div>
-            {topGroups.map(([g, v]) => (
-              <div key={g} style={{ marginBottom: 8 }}>
-                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
-                  <span style={{ fontSize: 12, color: T.textMid }}>{g}</span>
-                  <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{fmt(v)}</span>
-                </div>
-                <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
-                  <div style={{ height: "100%", width: (v/maxG*100)+"%", background: T.accent, borderRadius: 2, transition: "width 0.3s" }} />
-                </div>
-              </div>
-            ))}
-          </div>
-        );
-      })()}
-
-      {/* Month comparison table */}
       <div style={{ ...S.card, overflow: "hidden" }}>
-        <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
-          <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Month-by-Month Comparison</div>
+        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
+          {["Category Group","Budget/Mo","Committed","Actual","Status"].map(h=>(
+            <div key={h} style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
+          ))}
         </div>
-        <div style={{ overflowX: "auto" }}>
-          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
-            <thead>
-              <tr style={{ background: T.surfaceHigh }}>
-                <th style={{ padding: "8px 16px", textAlign: "left", color: T.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>Month</th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Income</th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Expenses</th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Net</th>
-                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Txns</th>
-              </tr>
-            </thead>
-            <tbody>
-              {months.map((m, i) => (
-                <tr key={m.month} onClick={() => setSelectedMonth(selectedMonth === m.month ? null : m.month)}
-                  style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: selectedMonth === m.month ? T.accent + "10" : "transparent" }}>
-                  <td style={{ padding: "9px 16px", color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>{m.label}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.green }}>{fmt(m.income)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.red }}>{fmt(m.expenses)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: m.net >= 0 ? T.green : T.red, fontWeight: 700 }}>{m.net >= 0 ? "+" : ""}{fmt(m.net)}</td>
-                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.textDim }}>{m.txCount}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+        {allGroups.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>Import transactions or add committed expenses to see budget data.</div>}
+        {allGroups.map(group => {
+          const budget=parseFloat(budgets[group])||0, actual=actualByGroup[group]||0, comm=committedByGroup[group]||0;
+          const pct=budget>0?Math.min(100,(actual/budget)*100):0, over=budget>0&&actual>budget;
+          return (
+            <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
+                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>— set</span>}</div>
+                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"—"}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: over?T.red:T.text }}>{fmt(actual)}</div>
+                <div>{budget>0?<Badge color={over?"red":pct>80?"accent":"green"}>{over?"Over":Math.round(pct)+"%"}</Badge>:actual>0?<Badge color="dim">No budget</Badge>:null}</div>
+              </div>
+              {budget>0&&<div style={{height:2,background:T.border}}><div style={{height:"100%",width:pct+"%",background:over?T.red:pct>80?T.accent:T.green,transition:"width 0.4s"}}/></div>}
+              {editingGroup===group&&(
+                <div style={{padding:"12px 20px",background:T.surfaceHigh,display:"flex",gap:10,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
+                  <span style={{fontSize:12,color:T.textMid}}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
+                  <input type="number" placeholder="0.00" defaultValue={budgets[group]||""} style={{...S.input,width:120,fontSize:13,padding:"6px 10px"}}
+                    onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(e.target.value)||0;setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}if(e.key==="Escape")setEditingGroup(null);}} autoFocus />
+                  <span style={{fontSize:11,color:T.textDim}}>Enter to save · Esc to cancel</span>
+                  {budgets[group]&&<button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>💡 Budgets are monthly targets. Click any row to set or edit.</div>
     </div>
   );
 }
+
 
 // ─── DEBT PLANNER TAB ────────────────────────────────────────────────────────
 function DebtPlannerTab({ debts, setDebts }) {
