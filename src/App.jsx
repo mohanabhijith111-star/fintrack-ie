@@ -839,6 +839,8 @@ export default function App() {
   const ALL_CATEGORIES = useMemo(() => Object.entries(OVERHEAD_GROUPS).flatMap(([g, cs]) => cs.map(c => ({ group: g, label: c }))), [OVERHEAD_GROUPS]);
   // ── Persist to localStorage on every change ─────────────────────────────────
   useEffect(() => { try { localStorage.setItem("ft_transactions", JSON.stringify(transactions)); } catch {} }, [transactions]);
+  // Trigger Drive auto-save whenever key data changes
+  useEffect(() => { if (typeof window._driveAutoSave === 'function') window._driveAutoSave(); }, [transactions, committed, debts, rules, customOverheads]);
   useEffect(() => { try { localStorage.setItem("ft_committed", JSON.stringify(committed)); } catch {} }, [committed]);
   useEffect(() => { try { localStorage.setItem("ft_debts", JSON.stringify(debts)); } catch {} }, [debts]);
   useEffect(() => { try { localStorage.setItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
@@ -3028,19 +3030,86 @@ async function findOrCreateFile(token) { const q = encodeURIComponent(`name='${G
 async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
 async function loadFromGDrive(token) { const fileId = await findOrCreateFile(token); const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) return null; const data = await r.json(); if (!data || Object.keys(data).length <= 1) return null; LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} }); return data['_savedAt'] || 'unknown'; }
 function DriveSync() {
-  const [status, setStatus] = useState('idle');
+  const [status, setStatus] = useState('idle'); // idle | syncing | saved | loaded | error
   const [lastSync, setLastSync] = useState(() => { try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; } });
-  const [token, setToken] = useState(null);
+  const [tokenRef] = useState({ current: null }); // ref-like object to avoid stale closure
   const [msg, setMsg] = useState('');
+  const autoSaveTimer = useRef(null);
   const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
-  const signIn = async () => { try { setStatus('syncing'); setMsg('Signing in...'); const t = await getAccessToken(); setToken(t); setMsg('Loading from Drive...'); const savedAt = await loadFromGDrive(t); if (savedAt) { const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('loaded'); setMsg('Loaded!'); setTimeout(() => window.location.reload(), 800); } else { setStatus('saved'); setMsg('No data yet.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } };
-  const save = async () => { try { setStatus('syncing'); setMsg('Saving...'); const t = token || await getAccessToken(); if (!token) setToken(t); const savedAt = await saveToGDrive(t); const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('saved'); setMsg('Saved!'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } };
+
+  // Expose save function globally so App can trigger auto-save on data changes
+  useEffect(() => {
+    window._driveAutoSave = async () => {
+      if (!tokenRef.current) return; // not signed in, skip
+      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+      autoSaveTimer.current = setTimeout(async () => {
+        try {
+          const savedAt = await saveToGDrive(tokenRef.current);
+          const ts = new Date(savedAt).toLocaleString('en-IE');
+          setLastSync(ts);
+          localStorage.setItem('ft_lastDriveSync', ts);
+          setStatus('saved'); setMsg('Auto-saved');
+          setTimeout(() => { setStatus('idle'); setMsg(''); }, 2000);
+        } catch { /* silent fail on auto-save */ }
+      }, 5000); // 5 second debounce
+    };
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+  }, []);
+
+  const signIn = async () => {
+    try {
+      setStatus('syncing'); setMsg('Signing in...');
+      const t = await getAccessToken();
+      tokenRef.current = t;
+      setMsg('Loading from Drive...');
+      const savedAt = await loadFromGDrive(t);
+      if (savedAt) {
+        const ts = new Date(savedAt).toLocaleString('en-IE');
+        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setStatus('loaded'); setMsg('Data loaded! Refreshing...');
+        setTimeout(() => window.location.reload(), 800);
+      } else {
+        // No data on Drive yet — save current local data up
+        setMsg('Saving your data to Drive...');
+        const savedAt2 = await saveToGDrive(t);
+        const ts = new Date(savedAt2).toLocaleString('en-IE');
+        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setStatus('saved'); setMsg('Saved to Drive!');
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+      }
+    } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+  };
+
+  const save = async () => {
+    try {
+      setStatus('syncing'); setMsg('Saving...');
+      if (!tokenRef.current) { const t = await getAccessToken(); tokenRef.current = t; }
+      const savedAt = await saveToGDrive(tokenRef.current);
+      const ts = new Date(savedAt).toLocaleString('en-IE');
+      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+      setStatus('saved'); setMsg('Saved!');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+  };
+
+  const isSignedIn = !!tokenRef.current;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
       {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim }}>{msg}</span>}
-      {lastSync && !msg && <span style={{ fontSize: 10, color: T.textDim }}>Synced {lastSync}</span>}
-      {!token ? (<button onClick={signIn} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Sync Drive</button>)
-      : (<button onClick={save} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save</button>)}
+      {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>Synced {lastSync}</span>}
+      {!isSignedIn ? (
+        <button onClick={signIn} disabled={status === 'syncing'}
+          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Sync Drive
+        </button>
+      ) : (
+        <button onClick={save} disabled={status === 'syncing'}
+          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green, whiteSpace: 'nowrap' }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Save Now
+        </button>
+      )}
     </div>
   );
 }
