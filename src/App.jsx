@@ -811,8 +811,10 @@ const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
   { id: "budgeting", label: "Budgeting", icon: Target },
+  { id: "monthly", label: "Monthly", icon: TrendingDown },
   { id: "committed", label: "Committed", icon: Calendar },
   { id: "debt", label: "Debt", icon: CreditCard },
+  { id: "planner", label: "Planner", icon: TrendingUp },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -861,11 +863,11 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
 
   // Committed form
-  const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", amount: "", currency: "EUR", startDate: today(), recurrence: "monthly", isFixed: true, note: "" });
+  const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", category: "", amount: "", currency: "EUR", startDate: today(), endDate: "", recurrence: "monthly", isFixed: true, isVariable: false, estimatedAvg: "", contractMonths: "", upfrontAmount: "", note: "" });
   const [showProjectId, setShowProjectId] = useState(null);
 
   // Debt form
-  const [debtForm, setDebtForm] = useState({ name: "", total: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", termMonths: "", dueDate: "", type: "loan", linkedAssetId: "" });
+  const [debtForm, setDebtForm] = useState({ name: "", total: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", minPayment: "", termMonths: "", dueDate: "", type: "loan", linkedAssetId: "" });
   const [assetForm, setAssetForm] = useState({ name: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", type: "savings", note: "" });
 
   // Transaction filters
@@ -1152,11 +1154,17 @@ export default function App() {
       typeId: commitForm.typeId,
       name: commitForm.name || typeInfo?.label || commitForm.typeId,
       group: typeInfo?.group || "Other",
+      category: commitForm.category || "",
       amount: commitForm.amount,
       currency: commitForm.currency,
       startDate: commitForm.startDate,
+      endDate: commitForm.endDate || "",
       recurrence: commitForm.recurrence,
       isFixed: commitForm.isFixed,
+      isVariable: commitForm.isVariable || false,
+      estimatedAvg: commitForm.estimatedAvg || "",
+      contractMonths: commitForm.contractMonths || "",
+      upfrontAmount: commitForm.upfrontAmount || "",
       note: commitForm.note,
     }]);
     setCommitForm(p => ({ ...p, name: "", amount: "", note: "" }));
@@ -1745,6 +1753,11 @@ export default function App() {
           </div>
         )}
 
+        {/* ══ MONTHLY ════════════════════════════════════════════════════════════ */}
+        {tab === "monthly" && (
+          <MonthlyTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} />
+        )}
+
         {/* ══ DEBT ══════════════════════════════════════════════════════════════ */}
         {tab === "debt" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
@@ -1919,6 +1932,11 @@ export default function App() {
               })}
             </div>
           </div>
+        )}
+
+        {/* ══ PLANNER ════════════════════════════════════════════════════════════ */}
+        {tab === "planner" && (
+          <DebtPlannerTab debts={debts} setDebts={setDebts} />
         )}
 
         {/* ══ SETTINGS ══════════════════════════════════════════════════════════ */}
@@ -2560,130 +2578,6 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) {
-  const { tx, type, count } = prompt;
-  const isBNPL = tx.category === "BNPL Payment";
-  const [selectedDebt, setSelectedDebt] = useState(debts[0]?.id || "");
-  const [newDebtName, setNewDebtName] = useState(tx.description);
-  const [loanAmount, setLoanAmount] = useState(parseFloat(tx.amount).toFixed(2));
-  const [instalments, setInstalments] = useState("3");
-  const confirmedAmount = parseFloat(loanAmount) || 0;
-  const numInstalments = parseInt(instalments) || 3;
-  const firstPayment = parseFloat(tx.amount) || 0;
-  const remainingBalance = isBNPL ? Math.max(0, confirmedAmount - firstPayment) : confirmedAmount;
-
-  return (
-    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ ...S.card, padding: 24, maxWidth: 460, width: "100%", background: T.surface }}>
-        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent }}>
-          {isBNPL ? "Buy Now Pay Later — Instalment" : type === "received" ? "Loan Received — Liability" : "Loan Repayment — Reduces Liability"}
-        </div>
-        <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>
-          {isBNPL ? "This looks like a BNPL instalment (e.g. Klarna). Set the total purchase amount and number of instalments to track the full debt."
-            : type === "received" ? "This is a liability, not income — it creates a debt. Add it to the Debt tracker to track the balance."
-            : "This payment reduces a liability. Link it to an existing debt to update the outstanding balance."}
-        </div>
-        <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <div style={{ fontSize: 12, color: T.textMid, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</div>
-            {count > 1 && <div style={{ fontSize: 11, color: T.accent, marginTop: 2 }}>{count} transactions — total aggregated</div>}
-            {isBNPL && <div style={{ fontSize: 11, color: T.blue, marginTop: 2 }}>First instalment payment</div>}
-          </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent, flexShrink: 0 }}>
-            {fmt(parseFloat(tx.amount), tx.currency || "EUR")}
-          </span>
-        </div>
-        {isBNPL && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-            <div>
-              <label style={S.label}>Purchase / Debt name</label>
-              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} />
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div>
-                <label style={S.label}>Total purchase amount (€)</label>
-                <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} />
-              </div>
-              <div>
-                <label style={S.label}>Number of instalments</label>
-                <input type="number" min="2" max="36" value={instalments} onChange={e => setInstalments(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} />
-              </div>
-            </div>
-            <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ color: T.textMid }}>Total purchase</span>
-                <span style={{ color: T.text, fontWeight: 600 }}>{fmt(confirmedAmount)}</span>
-              </div>
-              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
-                <span style={{ color: T.textMid }}>First instalment (paid)</span>
-                <span style={{ color: T.green }}>−{fmt(firstPayment)}</span>
-              </div>
-              <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
-                <span style={{ color: T.textMid }}>Remaining balance</span>
-                <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(Math.max(0, remainingBalance))}</span>
-              </div>
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>
-                {numInstalments - 1} more payment{numInstalments - 1 !== 1 ? "s" : ""} of ~{fmt(confirmedAmount / numInstalments)} remaining
-              </div>
-            </div>
-          </div>
-        )}
-        {!isBNPL && type === "received" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
-            <div>
-              <label style={S.label}>Debt / Liability name</label>
-              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} />
-            </div>
-            <div>
-              <label style={S.label}>Total loan amount {count > 1 ? `(${count} transactions combined)` : "(edit if needed)"}</label>
-              <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.accent + "60" }} />
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>Opening balance: {fmt(confirmedAmount, tx.currency || "EUR")}</div>
-            </div>
-          </div>
-        )}
-        {!isBNPL && type === "repayment" && debts.length > 0 && (
-          <div style={{ marginBottom: 16 }}>
-            <label style={S.label}>Apply repayment to</label>
-            <select value={selectedDebt} onChange={e => setSelectedDebt(e.target.value)} style={{ ...S.input, marginBottom: 6 }}>
-              {debts.map(d => (<option key={d.id} value={d.id}>{d.name} — balance {fmt(parseFloat(d.balance), d.currency)}</option>))}
-            </select>
-            <div style={{ fontSize: 11, color: T.textDim }}>Balance reduced by {fmt(parseFloat(tx.amount).toFixed(2), tx.currency || "EUR")}{count > 1 ? ` (${count} combined).` : "."}</div>
-          </div>
-        )}
-        {!isBNPL && type === "repayment" && debts.length === 0 && (
-          <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16, padding: "10px 12px", borderRadius: 8, background: T.surfaceHigh }}>
-            No debts in tracker yet. Add a debt first in the Debt tab, then come back to link repayments.
-          </div>
-        )}
-        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {isBNPL && confirmedAmount > 0 && (
-            <Btn style={{ background: T.blue, color: "#fff", border: "none" }} onClick={() => onAddDebt({
-              id: Date.now().toString(), name: newDebtName,
-              total: confirmedAmount.toFixed(2), balance: Math.max(0, remainingBalance).toFixed(2),
-              balanceAsOf: tx.date || today(), currency: tx.currency || "EUR",
-              rate: "0", termMonths: numInstalments.toString(), dueDate: "", type: "bnpl",
-              note: `${numInstalments} instalments of ~${fmt(confirmedAmount / numInstalments)}. First payment on ${tx.date}.`
-            })}>
-              <Plus size={13} /> Track BNPL Debt
-            </Btn>
-          )}
-          {!isBNPL && type === "received" && confirmedAmount > 0 && (
-            <Btn onClick={() => onAddDebt({ id: Date.now().toString(), name: newDebtName, total: confirmedAmount.toFixed(2), balance: confirmedAmount.toFixed(2), currency: tx.currency || "EUR", rate: "", termMonths: "", dueDate: "" })}>
-              <Plus size={13} /> Add to Debt Tracker
-            </Btn>
-          )}
-          {!isBNPL && type === "repayment" && selectedDebt && (
-            <Btn variant="success" onClick={() => onReduceDebt(selectedDebt, parseFloat(parseFloat(tx.amount).toFixed(2)))}>
-              <Check size={13} /> Apply Repayment
-            </Btn>
-          )}
-          <Btn variant="ghost" onClick={onDismiss}>Dismiss</Btn>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2970,104 +2864,187 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
   );
 }
 
+
+// ─── LOAN PROMPT MODAL (with BNPL + inline debt creation) ────────────────────
+function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) {
+  const { tx, type, count } = prompt;
+  const isBNPL = tx.category === "BNPL Payment";
+  const [mode, setMode] = useState(debts.length > 0 ? "link" : "create"); // link | create
+  const [selectedDebt, setSelectedDebt] = useState(debts[0]?.id || "");
+  const [newDebtName, setNewDebtName] = useState(tx.description);
+  const [loanAmount, setLoanAmount] = useState(parseFloat(tx.amount).toFixed(2));
+  const [instalments, setInstalments] = useState("3");
+  const confirmedAmount = parseFloat(loanAmount) || 0;
+  const numInstalments = parseInt(instalments) || 3;
+  const firstPayment = parseFloat(tx.amount) || 0;
+  const remainingBalance = isBNPL ? Math.max(0, confirmedAmount - firstPayment) : confirmedAmount;
+
+  return (
+    <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
+      <div style={{ ...S.card, padding: 24, maxWidth: 480, width: "100%", background: T.surface }}>
+        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent }}>
+          {isBNPL ? "Buy Now Pay Later — Instalment" : type === "received" ? "Loan Received — Liability" : "Loan Repayment — Reduces Liability"}
+        </div>
+        <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>
+          {isBNPL ? "Set the total purchase amount and instalments to track the full debt."
+            : type === "received" ? "This is a liability — creates a debt entry."
+            : "This payment reduces a liability. Link to an existing debt or create a new one."}
+        </div>
+
+        <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div style={{ fontSize: 12, color: T.textMid, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</div>
+            {count > 1 && <div style={{ fontSize: 11, color: T.accent, marginTop: 2 }}>{count} transactions combined</div>}
+            {isBNPL && <div style={{ fontSize: 11, color: T.blue, marginTop: 2 }}>First instalment</div>}
+          </div>
+          <span style={{ fontSize: 15, fontWeight: 700, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent, flexShrink: 0 }}>
+            {fmt(parseFloat(tx.amount), tx.currency || "EUR")}
+          </span>
+        </div>
+
+        {/* Repayment mode toggle */}
+        {!isBNPL && type === "repayment" && (
+          <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
+            {["link", "create"].map(m => (
+              <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "7px 10px", borderRadius: 7, border: `1px solid ${mode === m ? T.accent : T.border}`, background: mode === m ? T.accent + "20" : "transparent", color: mode === m ? T.accent : T.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
+                {m === "link" ? "Link to existing debt" : "Create new debt"}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* BNPL fields */}
+        {isBNPL && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <div><label style={S.label}>Purchase / Debt name</label>
+              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div><label style={S.label}>Total amount (€)</label>
+                <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} /></div>
+              <div><label style={S.label}>Instalments</label>
+                <input type="number" min="2" max="36" value={instalments} onChange={e => setInstalments(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} /></div>
+            </div>
+            <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
+              {[["Total", fmt(confirmedAmount), T.text], ["First paid", "−" + fmt(firstPayment), T.green], ["Remaining", fmt(Math.max(0, remainingBalance)), T.accent]].map(([l,v,c]) => (
+                <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ color: T.textMid }}>{l}</span><span style={{ color: c, fontWeight: l === "Remaining" ? 700 : 400 }}>{v}</span>
+                </div>
+              ))}
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{numInstalments - 1} more payment{numInstalments !== 2 ? "s" : ""} of ~{fmt(confirmedAmount / numInstalments)}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Loan received fields */}
+        {!isBNPL && type === "received" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <div><label style={S.label}>Debt / Liability name</label>
+              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
+            <div><label style={S.label}>Total amount {count > 1 ? `(${count} combined)` : ""}</label>
+              <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.accent + "60" }} /></div>
+          </div>
+        )}
+
+        {/* Repayment — link to existing */}
+        {!isBNPL && type === "repayment" && mode === "link" && (
+          <div style={{ marginBottom: 16 }}>
+            {debts.length > 0 ? (
+              <>
+                <label style={S.label}>Apply repayment to</label>
+                <select value={selectedDebt} onChange={e => setSelectedDebt(e.target.value)} style={{ ...S.input, marginBottom: 6 }}>
+                  {debts.map(d => (<option key={d.id} value={d.id}>{d.name} — {fmt(parseFloat(d.balance), d.currency)} remaining</option>))}
+                </select>
+                <div style={{ fontSize: 11, color: T.textDim }}>Reduces balance by {fmt(parseFloat(tx.amount), tx.currency || "EUR")}</div>
+              </>
+            ) : (
+              <div style={{ fontSize: 12, color: T.textDim, padding: "10px 12px", borderRadius: 8, background: T.surfaceHigh }}>
+                No debts yet — switch to "Create new debt" to add one.
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Repayment — create new debt */}
+        {!isBNPL && type === "repayment" && mode === "create" && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <div><label style={S.label}>Debt name</label>
+              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
+            <div><label style={S.label}>Total balance (before this payment)</label>
+              <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.accent + "60" }} />
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>
+                After this payment: balance will be {fmt(Math.max(0, confirmedAmount - firstPayment))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+          {isBNPL && confirmedAmount > 0 && (
+            <Btn style={{ background: T.blue, color: "#fff", border: "none" }} onClick={() => onAddDebt({
+              id: Date.now().toString(), name: newDebtName,
+              total: confirmedAmount.toFixed(2), balance: Math.max(0, remainingBalance).toFixed(2),
+              currency: tx.currency || "EUR", rate: "0", termMonths: numInstalments.toString(), dueDate: "", type: "bnpl",
+              note: `${numInstalments} instalments of ~${fmt(confirmedAmount / numInstalments)}.`
+            })}>
+              <Plus size={13} /> Track BNPL Debt
+            </Btn>
+          )}
+          {!isBNPL && type === "received" && confirmedAmount > 0 && (
+            <Btn onClick={() => onAddDebt({ id: Date.now().toString(), name: newDebtName, total: confirmedAmount.toFixed(2), balance: confirmedAmount.toFixed(2), currency: tx.currency || "EUR", rate: "", termMonths: "", dueDate: "" })}>
+              <Plus size={13} /> Add to Debt Tracker
+            </Btn>
+          )}
+          {!isBNPL && type === "repayment" && mode === "link" && selectedDebt && (
+            <Btn variant="success" onClick={() => onReduceDebt(selectedDebt, parseFloat(parseFloat(tx.amount).toFixed(2)))}>
+              <Check size={13} /> Apply Repayment
+            </Btn>
+          )}
+          {!isBNPL && type === "repayment" && mode === "create" && confirmedAmount > 0 && (
+            <Btn onClick={() => onAddDebt({
+              id: Date.now().toString(), name: newDebtName,
+              total: confirmedAmount.toFixed(2),
+              balance: Math.max(0, confirmedAmount - firstPayment).toFixed(2),
+              currency: tx.currency || "EUR", rate: "", termMonths: "", dueDate: "",
+              note: `First payment of ${fmt(firstPayment)} applied on ${tx.date}.`
+            })}>
+              <Plus size={13} /> Create Debt + Apply Payment
+            </Btn>
+          )}
+          <Btn variant="ghost" onClick={onDismiss}>Dismiss</Btn>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
 const GDRIVE_CLIENT_ID = '746587088287-p2rdrcg501p2gv1erfdttpvukihcur63.apps.googleusercontent.com';
 const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const GDRIVE_FILE_NAME = 'fintrack-ie-data.json';
 const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rules','ft_customOverheads','ft_salary','ft_firstPayday','ft_taxProfile','ft_budgets'];
-
-function loadGoogleIdentity() {
-  return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.onload = resolve; s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-async function getAccessToken() {
-  await loadGoogleIdentity();
-  return new Promise((resolve, reject) => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES,
-      callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); },
-    });
-    client.requestAccessToken({ prompt: '' });
-  });
-}
-async function findOrCreateFile(token) {
-  const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } });
-  const data = await r.json();
-  if (data.files?.length > 0) return data.files[0].id;
-  const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] };
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-  form.append('file', new Blob(['{}'], { type: 'application/json' }));
-  const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
-  return (await cr.json()).id;
-}
-async function saveToGDrive(token) {
-  const fileId = await findOrCreateFile(token);
-  const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} });
-  data['_savedAt'] = new Date().toISOString();
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' }));
-  form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }));
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
-  return data['_savedAt'];
-}
-async function loadFromGDrive(token) {
-  const fileId = await findOrCreateFile(token);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
-  if (!r.ok) return null;
-  const data = await r.json();
-  if (!data || Object.keys(data).length <= 1) return null;
-  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
-  return data['_savedAt'] || 'unknown';
-}
+function loadGoogleIdentity() { return new Promise((resolve, reject) => { if (window.google?.accounts?.oauth2) { resolve(); return; } const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); }); }
+async function getAccessToken() { await loadGoogleIdentity(); return new Promise((resolve, reject) => { const client = window.google.accounts.oauth2.initTokenClient({ client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES, callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); } }); client.requestAccessToken({ prompt: '' }); }); }
+async function findOrCreateFile(token) { const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`); const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } }); const data = await r.json(); if (data.files?.length > 0) return data.files[0].id; const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] }; const form = new FormData(); form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' })); form.append('file', new Blob(['{}'], { type: 'application/json' })); const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); return (await cr.json()).id; }
+async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
+async function loadFromGDrive(token) { const fileId = await findOrCreateFile(token); const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) return null; const data = await r.json(); if (!data || Object.keys(data).length <= 1) return null; LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} }); return data['_savedAt'] || 'unknown'; }
 function DriveSync() {
   const [status, setStatus] = useState('idle');
   const [lastSync, setLastSync] = useState(() => { try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; } });
   const [token, setToken] = useState(null);
   const [msg, setMsg] = useState('');
   const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
-  const signIn = async () => {
-    try {
-      setStatus('syncing'); setMsg('Signing in...');
-      const t = await getAccessToken(); setToken(t); setMsg('Loading from Drive...');
-      const savedAt = await loadFromGDrive(t);
-      if (savedAt) { const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('loaded'); setMsg('Loaded! Refreshing...'); setTimeout(() => window.location.reload(), 1000); }
-      else { setStatus('saved'); setMsg('No data yet — will save on next change.'); }
-    } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
-  };
-  const save = async () => {
-    try {
-      setStatus('syncing'); setMsg('Saving...');
-      const t = token || await getAccessToken(); if (!token) setToken(t);
-      const savedAt = await saveToGDrive(t); const ts = new Date(savedAt).toLocaleString('en-IE');
-      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('saved'); setMsg('Saved!');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
-  };
+  const signIn = async () => { try { setStatus('syncing'); setMsg('Signing in...'); const t = await getAccessToken(); setToken(t); setMsg('Loading from Drive...'); const savedAt = await loadFromGDrive(t); if (savedAt) { const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('loaded'); setMsg('Loaded!'); setTimeout(() => window.location.reload(), 800); } else { setStatus('saved'); setMsg('No data yet.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } };
+  const save = async () => { try { setStatus('syncing'); setMsg('Saving...'); const t = token || await getAccessToken(); if (!token) setToken(t); const savedAt = await saveToGDrive(t); const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('saved'); setMsg('Saved!'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); } };
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
       {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim }}>{msg}</span>}
       {lastSync && !msg && <span style={{ fontSize: 10, color: T.textDim }}>Synced {lastSync}</span>}
-      {!token ? (
-        <button onClick={signIn} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
-          Sync Drive
-        </button>
-      ) : (
-        <button onClick={save} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Save
-        </button>
-      )}
+      {!token ? (<button onClick={signIn} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>Sync Drive</button>)
+      : (<button onClick={save} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}><svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>Save</button>)}
     </div>
   );
 }
+
 
 // ─── BUDGETING TAB ────────────────────────────────────────────────────────────
 function BudgetingTab({ transactions, overheadGroups, committed }) {
@@ -3111,20 +3088,18 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
-          <div>
-            <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
-            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div>
-          </div>
+          <div><div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
+            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div></div>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
             <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option>
             <option value="last3">Last 3 Months</option><option value="thisYear">This Year</option>
           </select>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
-          {[{label:"Total Budget",value:fmt(totalBudget),color:T.accent},{label:"Total Spent",value:fmt(totalActual),color:totalActual>totalBudget&&totalBudget>0?T.red:T.text},{label:"Remaining",value:fmt(Math.max(0,totalBudget-totalActual)),color:T.green}].map(({label,value,color})=>(
-            <div key={label} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
-              <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
-              <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
+          {[{l:"Total Budget",v:fmt(totalBudget),c:T.accent},{l:"Total Spent",v:fmt(totalActual),c:totalActual>totalBudget&&totalBudget>0?T.red:T.text},{l:"Remaining",v:fmt(Math.max(0,totalBudget-totalActual)),c:T.green}].map(({l,v,c})=>(
+            <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{l}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color: c, marginTop: 2 }}>{v}</div>
             </div>
           ))}
         </div>
@@ -3153,10 +3128,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
                 <div style={{padding:"12px 20px",background:T.surfaceHigh,display:"flex",gap:10,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
                   <span style={{fontSize:12,color:T.textMid}}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
                   <input type="number" placeholder="0.00" defaultValue={budgets[group]||""} style={{...S.input,width:120,fontSize:13,padding:"6px 10px"}}
-                    onKeyDown={e=>{
-                      if(e.key==="Enter"){const v=parseFloat(e.target.value)||0;setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}
-                      if(e.key==="Escape")setEditingGroup(null);
-                    }} autoFocus />
+                    onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(e.target.value)||0;setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}if(e.key==="Escape")setEditingGroup(null);}} autoFocus />
                   <span style={{fontSize:11,color:T.textDim}}>Enter to save · Esc to cancel</span>
                   {budgets[group]&&<button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
                 </div>
@@ -3166,6 +3138,312 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
         })}
       </div>
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>💡 Budgets are monthly targets. Click any row to set or edit.</div>
+    </div>
+  );
+}
+
+// ─── MONTHLY ANALYTICS TAB ───────────────────────────────────────────────────
+function MonthlyTab({ transactions, overheadGroups }) {
+  const months = useMemo(() => {
+    const map = {};
+    transactions.forEach(tx => {
+      if (!tx.date) return;
+      const m = tx.date.substring(0, 7); // "2026-03"
+      if (!map[m]) map[m] = { income: 0, expenses: 0, byGroup: {}, txCount: 0 };
+      if (tx.isCredit && !tx.isPAYE) { map[m].income += tx.amount; }
+      else if (!tx.isCredit) {
+        map[m].expenses += tx.amount;
+        map[m].txCount++;
+        let g = "Other";
+        if (tx.category) for (const [grp, cats] of Object.entries(overheadGroups)) { if (cats.includes(tx.category)) { g = grp; break; } }
+        map[m].byGroup[g] = (map[m].byGroup[g] || 0) + tx.amount;
+      }
+    });
+    return Object.entries(map).sort((a, b) => b[0].localeCompare(a[0])).map(([m, d]) => ({
+      month: m,
+      label: new Date(m + "-01").toLocaleDateString("en-IE", { month: "short", year: "numeric" }),
+      ...d,
+      net: d.income - d.expenses,
+    }));
+  }, [transactions, overheadGroups]);
+
+  const [selectedMonth, setSelectedMonth] = useState(null);
+  const allGroups = useMemo(() => {
+    const gs = new Set(months.flatMap(m => Object.keys(m.byGroup)));
+    ["Income","Assets","Liabilities"].forEach(g => gs.delete(g));
+    return [...gs].sort();
+  }, [months]);
+
+  if (months.length === 0) return (
+    <div style={{ ...S.card, padding: 40, textAlign: "center", color: T.textDim }}>No transaction data yet. Import a bank statement to see monthly analytics.</div>
+  );
+
+  const maxExpenses = Math.max(...months.map(m => m.expenses), 1);
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Summary bar chart */}
+      <div style={{ ...S.card, padding: "16px 20px" }}>
+        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 16 }}>Monthly Overview</div>
+        <div style={{ overflowX: "auto" }}>
+          <div style={{ display: "flex", gap: 8, minWidth: Math.min(months.length, 12) * 72, paddingBottom: 8 }}>
+            {months.slice(0, 12).reverse().map(m => {
+              const expPct = (m.expenses / maxExpenses) * 100;
+              const incPct = (m.income / maxExpenses) * 100;
+              const isSelected = selectedMonth === m.month;
+              return (
+                <div key={m.month} onClick={() => setSelectedMonth(isSelected ? null : m.month)}
+                  style={{ flex: 1, minWidth: 56, cursor: "pointer", opacity: selectedMonth && !isSelected ? 0.5 : 1 }}>
+                  <div style={{ height: 100, display: "flex", alignItems: "flex-end", gap: 3, marginBottom: 6 }}>
+                    <div style={{ flex: 1, background: T.accent + "60", borderRadius: "3px 3px 0 0", height: incPct + "%", minHeight: m.income > 0 ? 2 : 0, transition: "height 0.3s" }} title={`Income: ${fmt(m.income)}`} />
+                    <div style={{ flex: 1, background: m.expenses > m.income ? T.red + "90" : T.textDim + "60", borderRadius: "3px 3px 0 0", height: expPct + "%", minHeight: m.expenses > 0 ? 2 : 0, transition: "height 0.3s" }} title={`Expenses: ${fmt(m.expenses)}`} />
+                  </div>
+                  <div style={{ fontSize: 9, color: isSelected ? T.accent : T.textDim, textAlign: "center", whiteSpace: "nowrap" }}>{m.label}</div>
+                  <div style={{ fontSize: 9, color: m.net >= 0 ? T.green : T.red, textAlign: "center", fontWeight: 600 }}>{m.net >= 0 ? "+" : ""}{fmt(m.net)}</div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+        <div style={{ display: "flex", gap: 16, marginTop: 8, fontSize: 11, color: T.textDim }}>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, background: T.accent + "60", borderRadius: 2, marginRight: 4 }} />Income</span>
+          <span><span style={{ display: "inline-block", width: 10, height: 10, background: T.textDim + "60", borderRadius: 2, marginRight: 4 }} />Expenses</span>
+        </div>
+      </div>
+
+      {/* Month detail */}
+      {selectedMonth && (() => {
+        const m = months.find(x => x.month === selectedMonth);
+        if (!m) return null;
+        const topGroups = Object.entries(m.byGroup).sort((a,b) => b[1]-a[1]);
+        const maxG = Math.max(...topGroups.map(([,v]) => v), 1);
+        return (
+          <div style={{ ...S.card, padding: "16px 20px" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 16 }}>
+              <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>{m.label} Breakdown</div>
+              <button onClick={() => setSelectedMonth(null)} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 18 }}>×</button>
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 10, marginBottom: 16 }}>
+              {[{l:"Income",v:fmt(m.income),c:T.green},{l:"Expenses",v:fmt(m.expenses),c:T.red},{l:"Net",v:(m.net>=0?"+":"")+fmt(m.net),c:m.net>=0?T.green:T.red}].map(({l,v,c})=>(
+                <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
+                  <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase" }}>{l}</div>
+                  <div style={{ fontSize: 16, fontWeight: 700, color: c, marginTop: 2 }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ fontSize: 12, color: T.textDim, marginBottom: 10 }}>Spending by category</div>
+            {topGroups.map(([g, v]) => (
+              <div key={g} style={{ marginBottom: 8 }}>
+                <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
+                  <span style={{ fontSize: 12, color: T.textMid }}>{g}</span>
+                  <span style={{ fontSize: 12, fontWeight: 600, color: T.text }}>{fmt(v)}</span>
+                </div>
+                <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
+                  <div style={{ height: "100%", width: (v/maxG*100)+"%", background: T.accent, borderRadius: 2, transition: "width 0.3s" }} />
+                </div>
+              </div>
+            ))}
+          </div>
+        );
+      })()}
+
+      {/* Month comparison table */}
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
+          <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Month-by-Month Comparison</div>
+        </div>
+        <div style={{ overflowX: "auto" }}>
+          <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
+            <thead>
+              <tr style={{ background: T.surfaceHigh }}>
+                <th style={{ padding: "8px 16px", textAlign: "left", color: T.textDim, fontWeight: 600, whiteSpace: "nowrap" }}>Month</th>
+                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Income</th>
+                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Expenses</th>
+                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Net</th>
+                <th style={{ padding: "8px 12px", textAlign: "right", color: T.textDim, fontWeight: 600 }}>Txns</th>
+              </tr>
+            </thead>
+            <tbody>
+              {months.map((m, i) => (
+                <tr key={m.month} onClick={() => setSelectedMonth(selectedMonth === m.month ? null : m.month)}
+                  style={{ borderBottom: `1px solid ${T.border}`, cursor: "pointer", background: selectedMonth === m.month ? T.accent + "10" : "transparent" }}>
+                  <td style={{ padding: "9px 16px", color: T.text, fontWeight: 600, whiteSpace: "nowrap" }}>{m.label}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.green }}>{fmt(m.income)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.red }}>{fmt(m.expenses)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: m.net >= 0 ? T.green : T.red, fontWeight: 700 }}>{m.net >= 0 ? "+" : ""}{fmt(m.net)}</td>
+                  <td style={{ padding: "9px 12px", textAlign: "right", color: T.textDim }}>{m.txCount}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ─── DEBT PLANNER TAB ────────────────────────────────────────────────────────
+function DebtPlannerTab({ debts, setDebts }) {
+  const [method, setMethod] = useState("avalanche"); // avalanche | snowball
+  const [extraPayment, setExtraPayment] = useState("0");
+  const extra = parseFloat(extraPayment) || 0;
+
+  const activeDebts = useMemo(() =>
+    debts.filter(d => parseFloat(d.balance) > 0 && d.currency === "EUR")
+      .map(d => ({
+        ...d,
+        balance: parseFloat(d.balance) || 0,
+        rate: parseFloat(d.rate) || 0,
+        minPayment: parseFloat(d.minPayment) || Math.max(25, (parseFloat(d.balance) || 0) * 0.02),
+      })), [debts]);
+
+  const totalBalance = activeDebts.reduce((s, d) => s + d.balance, 0);
+  const totalMin = activeDebts.reduce((s, d) => s + d.minPayment, 0);
+  const totalInterestRate = activeDebts.length > 0
+    ? activeDebts.reduce((s, d) => s + d.rate * d.balance, 0) / Math.max(totalBalance, 1)
+    : 0;
+
+  // Project payoff schedule
+  const schedule = useMemo(() => {
+    if (activeDebts.length === 0) return [];
+    let remaining = activeDebts.map(d => ({ ...d }));
+    const sorted = method === "avalanche"
+      ? [...remaining].sort((a, b) => b.rate - a.rate)
+      : [...remaining].sort((a, b) => a.balance - b.balance);
+
+    const payoffDates = {};
+    let months = 0;
+    let totalInterestPaid = 0;
+
+    while (remaining.some(d => d.balance > 0.01) && months < 360) {
+      months++;
+      let snowball = extra;
+      // Apply min payments + interest
+      remaining = remaining.map(d => {
+        if (d.balance <= 0) return d;
+        const interest = (d.rate / 100 / 12) * d.balance;
+        totalInterestPaid += interest;
+        const payment = Math.min(d.minPayment, d.balance + interest);
+        return { ...d, balance: Math.max(0, d.balance + interest - payment) };
+      });
+      // Apply extra to priority debt
+      const priority = sorted.find(s => remaining.find(r => r.id === s.id && r.balance > 0.01));
+      if (priority) {
+        const idx = remaining.findIndex(r => r.id === priority.id);
+        if (idx >= 0) {
+          const snowballApplied = Math.min(snowball, remaining[idx].balance);
+          remaining[idx] = { ...remaining[idx], balance: remaining[idx].balance - snowballApplied };
+          snowball -= snowballApplied;
+        }
+      }
+      // Mark payoffs
+      remaining.forEach(d => {
+        if (d.balance <= 0.01 && !payoffDates[d.id]) {
+          payoffDates[d.id] = months;
+          // Freed up minimum becomes snowball
+          snowball += d.minPayment;
+        }
+      });
+    }
+
+    const now = new Date();
+    return activeDebts.map(d => ({
+      ...d,
+      payoffMonths: payoffDates[d.id] || months,
+      payoffDate: new Date(now.getFullYear(), now.getMonth() + (payoffDates[d.id] || months), 1)
+        .toLocaleDateString("en-IE", { month: "short", year: "numeric" }),
+    })).sort((a, b) => a.payoffMonths - b.payoffMonths);
+  }, [activeDebts, method, extra]);
+
+  const totalMonths = schedule.length > 0 ? Math.max(...schedule.map(d => d.payoffMonths)) : 0;
+  const payoffDate = totalMonths > 0
+    ? new Date(new Date().getFullYear(), new Date().getMonth() + totalMonths, 1)
+        .toLocaleDateString("en-IE", { month: "long", year: "numeric" })
+    : "—";
+
+  if (activeDebts.length === 0) return (
+    <div style={{ ...S.card, padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>
+      No active debts tracked. Add debts in the Debt tab to use the planner.
+    </div>
+  );
+
+  return (
+    <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
+      {/* Strategy selector */}
+      <div style={{ ...S.card, padding: "16px 20px" }}>
+        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Debt Repayment Planner</div>
+        <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>Choose a strategy and set any extra monthly payment to accelerate payoff.</div>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, marginBottom: 16 }}>
+          {[
+            { id: "avalanche", label: "Avalanche", desc: "Pay highest interest first. Saves the most money." },
+            { id: "snowball", label: "Snowball", desc: "Pay smallest balance first. Builds motivation." },
+          ].map(s => (
+            <div key={s.id} onClick={() => setMethod(s.id)}
+              style={{ padding: "12px 14px", borderRadius: 10, border: `2px solid ${method === s.id ? T.accent : T.border}`, cursor: "pointer", background: method === s.id ? T.accent + "12" : "transparent" }}>
+              <div style={{ fontSize: 13, fontWeight: 700, color: method === s.id ? T.accent : T.text }}>{s.label}</div>
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>{s.desc}</div>
+            </div>
+          ))}
+        </div>
+        <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
+          <div style={{ flex: 1, minWidth: 180 }}>
+            <label style={S.label}>Extra monthly payment (€)</label>
+            <input type="number" min="0" step="10" value={extraPayment} onChange={e => setExtraPayment(e.target.value)}
+              style={{ ...S.input, borderColor: T.accent + "60" }} placeholder="0" />
+            <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>Total payment: {fmt(totalMin + extra)}/mo</div>
+          </div>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10, flex: 2, minWidth: 240 }}>
+            {[{l:"Total Debt",v:fmt(totalBalance),c:T.red},{l:"Avg Rate",v:totalInterestRate.toFixed(1)+"%",c:T.accent},{l:"Debt Free",v:payoffDate,c:T.green},{l:"Months",v:totalMonths.toString(),c:T.text}].map(({l,v,c})=>(
+              <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "8px 12px" }}>
+                <div style={{ fontSize: 9, color: T.textDim, textTransform: "uppercase" }}>{l}</div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: c, marginTop: 1 }}>{v}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      {/* Payoff schedule */}
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
+          <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Payoff Order — {method === "avalanche" ? "Avalanche" : "Snowball"} Method</div>
+        </div>
+        {schedule.map((d, i) => {
+          const pct = Math.max(0, Math.min(100, 100 - (d.balance / (parseFloat(d.total) || d.balance)) * 100));
+          return (
+            <div key={d.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
+                <div>
+                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+                    <span style={{ width: 20, height: 20, borderRadius: "50%", background: T.accent, color: "#0E0E10", fontSize: 11, fontWeight: 700, display: "flex", alignItems: "center", justifyContent: "center", flexShrink: 0 }}>{i + 1}</span>
+                    <span style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{d.name}</span>
+                    {d.rate > 0 && <Badge color="accent">{d.rate}% APR</Badge>}
+                    {d.type === "bnpl" && <Badge color="blue">BNPL</Badge>}
+                  </div>
+                  <div style={{ fontSize: 11, color: T.textDim, marginTop: 4, marginLeft: 28 }}>
+                    Min payment ~{fmt(d.minPayment)}/mo · Payoff by <b style={{ color: T.green }}>{d.payoffDate}</b> ({d.payoffMonths} months)
+                  </div>
+                </div>
+                <div style={{ textAlign: "right", flexShrink: 0 }}>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{fmt(d.balance)}</div>
+                  <div style={{ fontSize: 10, color: T.textDim }}>remaining</div>
+                </div>
+              </div>
+              <div style={{ height: 4, background: T.border, borderRadius: 2 }}>
+                <div style={{ height: "100%", width: pct + "%", background: pct > 60 ? T.green : T.accent, borderRadius: 2, transition: "width 0.4s" }} />
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginTop: 4 }}>
+                <span style={{ fontSize: 10, color: T.textDim }}>{Math.round(pct)}% paid off</span>
+                {d.note && <span style={{ fontSize: 10, color: T.textDim, fontStyle: "italic" }}>{d.note}</span>}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
+        💡 Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+      </div>
     </div>
   );
 }
