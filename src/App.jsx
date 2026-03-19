@@ -1436,7 +1436,8 @@ export default function App() {
                           id: Date.now().toString(),
                           typeId: "other_fixed",
                           name: r.description,
-                          group: "Other",
+                          group: (() => { const cat = transactions.find(t => t.description === r.description && t.category)?.category; if (!cat) return "Other"; for (const [g, cats] of Object.entries(OVERHEAD_GROUPS)) { if (cats.includes(cat)) return g; } return "Other"; })(),
+                          category: transactions.find(t => t.description === r.description && t.category)?.category || "",
                           amount: r.amount.toString(),
                           currency: "EUR",
                           startDate: r.dates[r.dates.length - 1],
@@ -1737,7 +1738,44 @@ export default function App() {
                           <Badge color="dim">{rec?.l}</Badge>
                           <span style={{ fontSize: 11, color: T.textDim }}>{ce.group}</span>
                         </div>
-                        {ce.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{ce.note}</div>}
+                        {/* Category picker inline */}
+                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                          <CategoryCombo
+                            value={ce.category || ""}
+                            overheadGroups={OVERHEAD_GROUPS}
+                            placeholder="Set category..."
+                            onNewCategory={label => setCustomOverheads(prev => {
+                              if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
+                              return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
+                            })}
+                            onChange={cat => {
+                              // Update committed expense category
+                              setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: cat } : x));
+                              // Auto-apply to all matching transactions
+                              if (cat) {
+                                const kw = ce.name.toLowerCase().trim();
+                                setTransactions(prev => prev.map(tx => {
+                                  if (tx.isCredit) return tx;
+                                  const desc = (tx.description || "").toLowerCase().trim();
+                                  if (desc === kw || desc.includes(kw) || kw.includes(desc.substring(0, Math.min(desc.length, 20)))) {
+                                    return { ...tx, category: cat };
+                                  }
+                                  return tx;
+                                }));
+                                // Also create/update auto-categorisation rule
+                                setRules(prev => {
+                                  const existing = prev.find(r => r.category === cat && r.keywords?.some(k => kw.includes(k) || k.includes(kw)));
+                                  if (existing) return prev;
+                                  const shortKw = kw.split(" ").slice(0, 3).join(" ");
+                                  return [...prev.filter(r => !(r.keywords?.includes(shortKw))), { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
+                                });
+                              }
+                            }}
+                            style={{ fontSize: 12 }}
+                          />
+                          {ce.category && <Badge color="green">{ce.category}</Badge>}
+                        </div>
+                        {ce.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{ce.note}</div>}
                         {next && (
                           <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
                             Next: {dateStr(next.effective)}
