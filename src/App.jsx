@@ -1,8 +1,8 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 
-// âââ DESIGN TOKENS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-// Palette: warm slate / ivory / amber accent â refined & editorial
+// ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
+// Palette: warm slate / ivory / amber accent — refined & editorial
 const T = {
   bg: "#0E0E10",
   surface: "#18181C",
@@ -24,7 +24,7 @@ const T = {
   purpleDim: "#2A1E3C",
 };
 
-// âââ CONSTANTS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── CONSTANTS ────────────────────────────────────────────────────────────────
 const CURRENCIES = ["EUR", "INR", "USD", "GBP"];
 const getCurrencySymbol = (c) => ({ EUR: "\u20AC", INR: "\u20B9", USD: "$", GBP: "\u00A3" }[c] || c);
 const fmt = (n, c = "EUR") => `${getCurrencySymbol(c)}${Number(n || 0).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -33,11 +33,11 @@ const dateStr = (d) => { try { return new Date(d).toLocaleDateString("en-IE", { 
 const today = () => new Date().toISOString().split("T")[0];
 const toISO = (d) => { try { return new Date(d).toISOString().split("T")[0]; } catch { return today(); } };
 
-// âââ OVERHEAD CATEGORIES âââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── OVERHEAD CATEGORIES ─────────────────────────────────────────────────────
 const BUILTIN_OVERHEAD_GROUPS = {
-  // ââ P&L: Income ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── P&L: Income ──────────────────────────────────────────────────────────
   "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Social Welfare", "Other Income"],
-  // ââ P&L: Expenses ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── P&L: Expenses ────────────────────────────────────────────────────────
   "Housing": ["Rent", "Mortgage", "Home Insurance", "Management Fee", "Repairs & Maintenance"],
   "Motor": ["Car Loan / HP", "Motor Insurance", "Motor Tax", "Fuel", "NCT / Service", "Toll / E-Flow", "Parking"],
   "Health": ["Health Insurance", "Dental", "Pharmacy", "GP / Specialist", "Gym"],
@@ -48,42 +48,42 @@ const BUILTIN_OVERHEAD_GROUPS = {
   "Personal": ["Clothing", "Personal Care", "Entertainment", "Gifts", "Holidays"],
   "Work": ["Work Expenses", "Training / Education", "Professional Membership"],
   "Tax": ["Income Tax Payment", "USC", "PRSI", "LPT"],
-  // ââ Balance Sheet: Assets âââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Balance Sheet: Assets ─────────────────────────────────────────────────
   "Assets": [
-    "Property Purchase",      // Capital â increases asset
-    "Vehicle Purchase",       // Capital â increases asset
-    "Equipment Purchase",     // Capital â increases asset
-    "Investment Purchase",    // Capital â increases asset
-    "Savings Deposit",        // Moves cash to savings â asset
+    "Property Purchase",      // Capital — increases asset
+    "Vehicle Purchase",       // Capital — increases asset
+    "Equipment Purchase",     // Capital — increases asset
+    "Investment Purchase",    // Capital — increases asset
+    "Savings Deposit",        // Moves cash to savings — asset
     "Asset Sale",             // Reduces asset, receipt of cash
     "Capital Receipt",        // Other capital inflow
   ],
-  // ââ Balance Sheet: Liabilities ââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Balance Sheet: Liabilities ────────────────────────────────────────────
   "Liabilities": [
-    "Loan Received",          // Money in â creates a liability (not income)
-    "Loan Repayment",         // Money out â reduces liability (not expense)
+    "Loan Received",          // Money in — creates a liability (not income)
+    "Loan Repayment",         // Money out — reduces liability (not expense)
     "Credit Card Payment",    // Reduces credit card liability
-    "Mortgage Drawdown",      // Money in â creates mortgage liability
-    "Hire Purchase Drawdown", // Money in â creates HP liability
-    "Intercompany Transfer",  // Internal transfer â no P&L impact
+    "Mortgage Drawdown",      // Money in — creates mortgage liability
+    "Hire Purchase Drawdown", // Money in — creates HP liability
+    "Intercompany Transfer",  // Internal transfer — no P&L impact
     "Deposit Received",       // Liability until returned
     "Deposit Refunded",       // Reduces liability
   ],
-  // ââ Other âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
-  "Financial": ["Credit Card Min Payment", "Savings Transfer", "AVC / Pension"],
+  // ── Other ─────────────────────────────────────────────────────────────────
+  "Financial": ["Credit Card Min Payment", "BNPL Payment", "Savings Transfer", "AVC / Pension"],
   "Other": ["Bank Charges", "ATM / Cash", "Internal Transfer", "Unknown"],
 };
 
-// Accounting type per category â drives correct P&L vs Balance Sheet treatment
+// Accounting type per category — drives correct P&L vs Balance Sheet treatment
 const ACCOUNTING_TYPE_MAP = {
-  // Income â P&L credit
+  // Income → P&L credit
   "Salary": "income", "Freelance / Contract": "income", "Rental Income": "income",
   "Investment Returns": "income", "Social Welfare": "income", "Other Income": "income",
   "Capital Receipt": "income",
-  // Assets â Balance Sheet debit (increases asset)
+  // Assets → Balance Sheet debit (increases asset)
   "Property Purchase": "asset", "Vehicle Purchase": "asset", "Equipment Purchase": "asset",
   "Investment Purchase": "asset", "Savings Deposit": "asset", "Asset Sale": "asset",
-  // Liabilities â Balance Sheet credit (increases liability) or reduces it
+  // Liabilities → Balance Sheet credit (increases liability) or reduces it
   "Loan Received": "liability", "Mortgage Drawdown": "liability",
   "Hire Purchase Drawdown": "liability", "Deposit Received": "liability",
   "Loan Repayment": "liability_reduction", "Credit Card Payment": "liability_reduction",
@@ -91,10 +91,10 @@ const ACCOUNTING_TYPE_MAP = {
   "Deposit Refunded": "liability_reduction", "Intercompany Transfer": "transfer",
   "Savings Transfer": "transfer", "Internal Transfer": "transfer",
 };
-// Liability categories that mean "loan received" â should link to debt tracker
+// Liability categories that mean "loan received" — should link to debt tracker
 const LOAN_RECEIVED_CATS = new Set(["Loan Received", "Mortgage Drawdown", "Hire Purchase Drawdown"]);
-// Liability reduction categories â should reduce debt balance
-const LOAN_REPAYMENT_CATS = new Set(["Loan Repayment", "Credit Card Payment", "Credit Card Min Payment"]);
+// Liability reduction categories — should reduce debt balance
+const LOAN_REPAYMENT_CATS = new Set(["Loan Repayment", "Credit Card Payment", "Credit Card Min Payment", "BNPL Payment"]);
 
 function getAccountingType(category) {
   return ACCOUNTING_TYPE_MAP[category] || (
@@ -112,7 +112,7 @@ function buildOverheadGroups(customOverheads = []) {
   return merged;
 }
 
-// Nature: revenue vs capital â kept for P&L split but accounting type takes precedence
+// Nature: revenue vs capital — kept for P&L split but accounting type takes precedence
 const CAPITAL_CATEGORIES = new Set([
   "Property Purchase", "Vehicle Purchase", "Equipment Purchase", "Investment Purchase",
   "Capital Receipt", "Asset Sale", "Investment Returns",
@@ -189,7 +189,7 @@ function detectRecurring(transactions) {
 
 const INCOME_CATS = new Set(BUILTIN_OVERHEAD_GROUPS["Income"]);
 
-// âââ IRISH BANK HOLIDAYS 2026 âââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── IRISH BANK HOLIDAYS 2026 ─────────────────────────────────────────────────
 const IE_BANK_HOLIDAYS = new Set(["2026-01-01","2026-02-02","2026-03-17","2026-04-03","2026-04-06","2026-05-04","2026-06-01","2026-08-03","2026-10-26","2026-12-25","2026-12-26"]);
 function nextBankDay(ds) {
   let d = new Date(ds + "T12:00:00");
@@ -199,7 +199,7 @@ function nextBankDay(ds) {
   return d.toISOString().split("T")[0];
 }
 
-// âââ PAY CALCULATIONS âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── PAY CALCULATIONS ─────────────────────────────────────────────────────────
 const PAY_FREQS = { weekly: 52, fortnightly: 26, monthly: 12 };
 const DEFAULT_CREDITS = {
   single:   { personalCredit: 2000, employeeCredit: 2000 },
@@ -265,7 +265,7 @@ function getPaydays(firstDate, freq, count = 13) {
   return dates;
 }
 
-// âââ COMMITTED EXPENSE TYPES ââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── COMMITTED EXPENSE TYPES ──────────────────────────────────────────────────
 const RECURRENCES = [
   { v: "weekly", l: "Weekly", ppy: 52 },
   { v: "fortnightly", l: "Fortnightly", ppy: 26 },
@@ -329,7 +329,7 @@ function projectDates(start, rec, count = 12) {
   return dates;
 }
 
-// âââ EXCEL PARSER (SheetJS) âââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── EXCEL PARSER (SheetJS) ───────────────────────────────────────────────────
 async function parseXLSXToTransactions(file) {
   // Dynamically load SheetJS from CDN
   if (!window.XLSX) {
@@ -354,7 +354,7 @@ async function parseXLSXToTransactions(file) {
   const header = rows[0].map(h => (h || "").toString().trim());
   const cols = header.map(h => h.toLowerCase());
 
-  // Find columns - handle PTSB "Money in (â¬)" / "Money out (â¬)" style
+  // Find columns - handle PTSB "Money in (€)" / "Money out (€)" style
   const findCol = (...terms) => {
     for (const t of terms) {
       const i = cols.findIndex(c => c === t || c.includes(t));
@@ -471,7 +471,7 @@ function parseCSVToTransactions(text) {
   const headerFields = splitCSVLine(lines[0]);
   const cols = headerFields.map(c => c.toLowerCase().trim());
 
-  // Exact match first, then partial â prevents "started date" stealing "date" slot
+  // Exact match first, then partial — prevents "started date" stealing "date" slot
   const findExact = (...candidates) => {
     for (const c of candidates) {
       const i = cols.findIndex(col => col === c);
@@ -504,10 +504,10 @@ function parseCSVToTransactions(text) {
     return cols.findIndex(col => col.includes("date"));
   })();
 
-  // Description â do NOT include "type" (that's transaction type, not payee)
+  // Description — do NOT include "type" (that's transaction type, not payee)
   const descIdx = find("description", "details", "narrative", "particulars", "transaction details", "payee", "merchant", "reference", "info", "memo");
 
-  // Credit / debit separate columns â handle "Money in (â¬)", "Credit", "Paid in" etc.
+  // Credit / debit separate columns — handle "Money in (€)", "Credit", "Paid in" etc.
   const creditIdx = (() => {
     const e = findExact("credit", "money in", "paid in", "in", "deposits");
     if (e >= 0) return e;
@@ -519,7 +519,7 @@ function parseCSVToTransactions(text) {
     return cols.findIndex(c => (c.includes("money out") || c.includes("paid out") || c.includes("debit")) && !c.includes("in"));
   })();
 
-  // Single amount column â but NOT "fee", "balance", "running balance"
+  // Single amount column — but NOT "fee", "balance", "running balance"
   const amtIdx = (() => {
     const exact = findExact("amount", "transaction amount", "value", "eur amount", "net amount");
     if (exact >= 0) return exact;
@@ -601,7 +601,7 @@ function parseCSVToTransactions(text) {
   return transactions;
 }
 
-// âââ AI CATEGORISATION ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── AI CATEGORISATION ────────────────────────────────────────────────────────
 async function categoriseTransactions(transactions, rules) {
   // Apply existing rules first
   const withRules = transactions.map(tx => {
@@ -652,7 +652,7 @@ function applyRules(description, rules) {
   return null;
 }
 
-// âââ UI PRIMITIVES ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
 const S = {
   card: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12 },
   cardHigh: { background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 12 },
@@ -746,7 +746,7 @@ function Divider() {
   return <div style={{ borderTop: `1px solid ${T.border}`, margin: "16px 0" }} />;
 }
 
-// âââ CATEGORY COMBO ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── CATEGORY COMBO ──────────────────────────────────────────────────────────
 // Free-text input with datalist suggestions from existing overheads.
 // Typing a new value creates it as a custom overhead automatically.
 function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeholder, style: extra = {} }) {
@@ -758,7 +758,7 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
   const prevValueRef = useRef(value);
 
   // When parent value changes externally (e.g. backfill from another row),
-  // sync the display â but only when not focused so we don't clobber active typing
+  // sync the display — but only when not focused so we don't clobber active typing
   if (prevValueRef.current !== value) {
     prevValueRef.current = value;
     if (!focused) {
@@ -807,167 +807,6 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
 }
 
 
-// ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
-const GDRIVE_CLIENT_ID = '746587088287-p2rdrcg501p2gv1erfdttpvukihcur63.apps.googleusercontent.com';
-const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
-const GDRIVE_FILE_NAME = 'fintrack-ie-data.json';
-const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rules','ft_customOverheads','ft_salary','ft_firstPayday','ft_taxProfile','ft_budgets'];
-
-function loadGoogleIdentity() {
-  return new Promise((resolve, reject) => {
-    if (window.google?.accounts?.oauth2) { resolve(); return; }
-    const s = document.createElement('script');
-    s.src = 'https://accounts.google.com/gsi/client';
-    s.onload = resolve;
-    s.onerror = reject;
-    document.head.appendChild(s);
-  });
-}
-
-async function getAccessToken() {
-  await loadGoogleIdentity();
-  return new Promise((resolve, reject) => {
-    const client = window.google.accounts.oauth2.initTokenClient({
-      client_id: GDRIVE_CLIENT_ID,
-      scope: GDRIVE_SCOPES,
-      callback: (resp) => {
-        if (resp.error) reject(new Error(resp.error));
-        else resolve(resp.access_token);
-      },
-    });
-    client.requestAccessToken({ prompt: '' });
-  });
-}
-
-async function findOrCreateFile(token) {
-  // Search in appDataFolder
-  const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  const data = await r.json();
-  if (data.files && data.files.length > 0) return data.files[0].id;
-  // Create new file
-  const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] };
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
-  form.append('file', new Blob(['{}'], { type: 'application/json' }));
-  const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
-    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
-  });
-  const created = await cr.json();
-  return created.id;
-}
-
-async function saveToGDrive(token) {
-  const fileId = await findOrCreateFile(token);
-  const data = {};
-  LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} });
-  data['_savedAt'] = new Date().toISOString();
-  const form = new FormData();
-  form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' }));
-  form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }));
-  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
-    method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
-  });
-  return data['_savedAt'];
-}
-
-async function loadFromGDrive(token) {
-  const fileId = await findOrCreateFile(token);
-  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
-    headers: { Authorization: `Bearer ${token}` }
-  });
-  if (!r.ok) return null;
-  const data = await r.json();
-  if (!data || Object.keys(data).length <= 1) return null; // only _savedAt or empty
-  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
-  return data['_savedAt'] || 'unknown time';
-}
-
-function DriveSync() {
-  const [status, setStatus] = useState('idle'); // idle | syncing | saved | loaded | error
-  const [lastSync, setLastSync] = useState(() => {
-    try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; }
-  });
-  const [token, setToken] = useState(null);
-  const [msg, setMsg] = useState('');
-
-  const signIn = async () => {
-    try {
-      setStatus('syncing');
-      setMsg('Signing in...');
-      const t = await getAccessToken();
-      setToken(t);
-      setMsg('Loading from Drive...');
-      const savedAt = await loadFromGDrive(t);
-      if (savedAt) {
-        const ts = new Date(savedAt).toLocaleString('en-IE');
-        setLastSync(ts);
-        localStorage.setItem('ft_lastDriveSync', ts);
-        setStatus('loaded');
-        setMsg('Data loaded! Refreshing...');
-        setTimeout(() => window.location.reload(), 1000);
-      } else {
-        setStatus('saved');
-        setMsg('No existing data found — will save on next change.');
-      }
-    } catch (e) {
-      setStatus('error');
-      setMsg('Sign-in failed. Try again.');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    }
-  };
-
-  const save = async () => {
-    try {
-      setStatus('syncing');
-      setMsg('Saving to Drive...');
-      const t = token || await getAccessToken();
-      if (!token) setToken(t);
-      const savedAt = await saveToGDrive(t);
-      const ts = new Date(savedAt).toLocaleString('en-IE');
-      setLastSync(ts);
-      localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('saved');
-      setMsg('Saved to your Google Drive!');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    } catch (e) {
-      setStatus('error');
-      setMsg('Save failed. Try again.');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    }
-  };
-
-  const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
-  const c = colors[status] || T.textDim;
-
-  return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-      {msg && <span style={{ fontSize: 11, color: c }}>{msg}</span>}
-      {lastSync && !msg && <span style={{ fontSize: 10, color: T.textDim }}>Synced {lastSync}</span>}
-      {!token ? (
-        <button onClick={signIn} disabled={status === 'syncing'}
-          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
-          </svg>
-          Sync Drive
-        </button>
-      ) : (
-        <button onClick={save} disabled={status === 'syncing'}
-          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
-            <polyline points="20 6 9 17 4 12"/>
-          </svg>
-          Save
-        </button>
-      )}
-    </div>
-  );
-}
-
-
 const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
@@ -978,12 +817,12 @@ const TABS = [
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-// âââ MAIN APP âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── MAIN APP ─────────────────────────────────────────────────────────────────
 export default function App() {
   // Navigation
   const [tab, setTab] = useState("dashboard");
 
-  // Core data â persisted to localStorage
+  // Core data — persisted to localStorage
   const [transactions, setTransactions] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_transactions") || "[]"); } catch { return []; } });
   const [committed, setCommitted] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_committed") || "[]"); } catch { return []; } });
   const [debts, setDebts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_debts") || "[]"); } catch { return []; } });
@@ -996,7 +835,7 @@ export default function App() {
   // Computed overhead groups (built-ins + custom)
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
   const ALL_CATEGORIES = useMemo(() => Object.entries(OVERHEAD_GROUPS).flatMap(([g, cs]) => cs.map(c => ({ group: g, label: c }))), [OVERHEAD_GROUPS]);
-  // ââ Persist to localStorage on every change âââââââââââââââââââââââââââââââââ
+  // ── Persist to localStorage on every change ─────────────────────────────────
   useEffect(() => { try { localStorage.setItem("ft_transactions", JSON.stringify(transactions)); } catch {} }, [transactions]);
   useEffect(() => { try { localStorage.setItem("ft_committed", JSON.stringify(committed)); } catch {} }, [committed]);
   useEffect(() => { try { localStorage.setItem("ft_debts", JSON.stringify(debts)); } catch {} }, [debts]);
@@ -1008,7 +847,7 @@ export default function App() {
   const [importMsg, setImportMsg] = useState("");
   const fileRef = useRef();
 
-  // Payroll â pre-filled with mock PAYE data
+  // Payroll — pre-filled with mock PAYE data
   const [salary, setSalary] = useState(() => { try { return localStorage.getItem("ft_salary") || ""; } catch(e) { return ""; } });
   const [firstPayday, setFirstPayday] = useState(() => { try { return localStorage.getItem("ft_firstPayday") || ""; } catch(e) { return ""; } });
   const [taxProfile, setTaxProfile] = useState(() => {
@@ -1020,7 +859,6 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
   useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
   useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
-
 
   // Committed form
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", amount: "", currency: "EUR", startDate: today(), recurrence: "monthly", isFixed: true, note: "" });
@@ -1119,7 +957,7 @@ export default function App() {
     return events.sort((a, b) => a.date - b.date);
   }, [firstPayday, payroll, taxProfile.payFrequency, transactions, committed, debts]);
 
-  // ââ Actions ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── Actions ──────────────────────────────────────────────────────────────────
 
   function addManualTx(tx) {
     const newTx = {
@@ -1141,7 +979,7 @@ export default function App() {
           }
           return [...prev, { id: Date.now().toString(), keywords: [kw], category: tx.category, created: today() }];
         });
-        // Single setTransactions â prepend new tx AND backfill ALL matching in one pass
+        // Single setTransactions — prepend new tx AND backfill ALL matching in one pass
         setTransactions(prev => [
           newTx,
           ...prev.map(t =>
@@ -1153,7 +991,7 @@ export default function App() {
         return;
       }
     }
-    // No category or keyword â just prepend
+    // No category or keyword — just prepend
     setTransactions(prev => [newTx, ...prev]);
   }
 
@@ -1180,7 +1018,7 @@ export default function App() {
       });
     }
 
-    // Single setTransactions call â update target tx AND backfill ALL with same description
+    // Single setTransactions call — update target tx AND backfill ALL with same description
     setTransactions(prev => prev.map(tx => {
       if (tx.id === id) return { ...tx, category, nature };
       // Apply to ALL transactions with matching description (not just uncategorised)
@@ -1189,7 +1027,7 @@ export default function App() {
       return tx;
     }));
 
-    // Liability prompts â sum ALL matching transactions (target + backfilled)
+    // Liability prompts — sum ALL matching transactions (target + backfilled)
     if (LOAN_RECEIVED_CATS.has(category) || LOAN_REPAYMENT_CATS.has(category)) {
       const targetTx = transactions.find(t => t.id === id);
       if (targetTx) {
@@ -1246,7 +1084,7 @@ export default function App() {
       const dupeCount = parsed.length - fresh.length;
 
       if (fresh.length === 0) {
-        setImportMsg("All " + parsed.length + " transactions already recorded â nothing new to import.");
+        setImportMsg("All " + parsed.length + " transactions already recorded — nothing new to import.");
         setImporting(false);
         return;
       }
@@ -1381,7 +1219,7 @@ export default function App() {
     setPaydaysAdded(true);
   }
 
-  // ââ RENDER ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+  // ── RENDER ────────────────────────────────────────────────────────────────────
 
   return (
     <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
@@ -1410,7 +1248,7 @@ export default function App() {
       {/* Viewport meta injected for mobile zoom fix */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
-      {/* ââ TOP BAR ââ */}
+      {/* ── TOP BAR ── */}
       <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
@@ -1420,7 +1258,7 @@ export default function App() {
             {nextPayday && payroll && (
               <div style={{ textAlign: "right", minWidth: 0 }}>
                 <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Next pay</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} Â· {fmt(payroll.perNet)}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} · {fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
@@ -1448,10 +1286,10 @@ export default function App() {
 
       <div className="pad-page" style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-        {/* ââ DASHBOARD ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ DASHBOARD ══════════════════════════════════════════════════════════ */}
         {tab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* KPI row â 2 cols on mobile, auto-fit on desktop */}
+            {/* KPI row — 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green" />
               <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red" />
@@ -1461,7 +1299,7 @@ export default function App() {
               <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions" />
             </div>
 
-            {/* Two column â stacks on mobile */}
+            {/* Two column — stacks on mobile */}
             <div className="two-col">
               {/* Spending by category */}
               <div style={{ ...S.card, padding: 20 }}>
@@ -1501,7 +1339,7 @@ export default function App() {
                     <div key={tx.id} className="tx-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8 }} onClick={() => setTab("transactions")}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{tx.description}</div>
-                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` Â· ${tx.category}` : " Â· uncategorised"}</div>
+                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` · ${tx.category}` : " · uncategorised"}</div>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 600, color: tx.isCredit ? T.green : T.red, flexShrink: 0, marginLeft: 8 }}>
                         {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency)}
@@ -1542,7 +1380,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ââ TRANSACTIONS ââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ TRANSACTIONS ══════════════════════════════════════════════════════ */}
         {tab === "transactions" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -1676,7 +1514,7 @@ export default function App() {
               />
             </div>
 
-            {/* Filter bar â single compact row */}
+            {/* Filter bar — single compact row */}
             <div style={{ ...S.card, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                 {[["all","All"],["income","In"],["expense","Out"],["uncat","Uncat"]].map(([v,l]) => (
@@ -1773,19 +1611,19 @@ export default function App() {
           </div>
         )}
 
-        {/* ââ BUDGETING ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ BUDGETING ══════════════════════════════════════════════════════════ */}
         {tab === "budgeting" && (
           <BudgetingTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
         )}
 
-        {/* ââ COMMITTED âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ COMMITTED ═════════════════════════════════════════════════════════ */}
         {tab === "committed" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Compact add form */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Committed Expense</div>
-              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Fixed and variable recurring costs â projected with Irish banking day adjustments.</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Fixed and variable recurring costs — projected with Irish banking day adjustments.</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 12 }}>
                 <div style={{ gridColumn: "span 2" }}>
                   <Select label="Type" value={commitForm.typeId} onChange={e => {
@@ -1868,7 +1706,7 @@ export default function App() {
                         {next && (
                           <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
                             Next: {dateStr(next.effective)}
-                            {next.shifted && <span style={{ color: T.accent, marginLeft: 6 }}>(moved â weekend/holiday)</span>}
+                            {next.shifted && <span style={{ color: T.accent, marginLeft: 6 }}>(moved — weekend/holiday)</span>}
                           </div>
                         )}
                       </div>
@@ -1907,7 +1745,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ââ DEBT ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ DEBT ══════════════════════════════════════════════════════════════ */}
         {tab === "debt" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -1925,7 +1763,7 @@ export default function App() {
               );
             })()}
 
-            {/* ââ ASSETS âââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+            {/* ── ASSETS ───────────────────────────────────────────────────── */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Asset / Savings Account</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Track savings accounts, share accounts, deposits and investments. A Credit Union share account is an asset.</div>
@@ -1974,7 +1812,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ââ LIABILITIES ââââââââââââââââââââââââââââââââââââââââââââââââ */}
+            {/* ── LIABILITIES ──────────────────────────────────────────────── */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Liability / Loan</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>
@@ -2011,13 +1849,13 @@ export default function App() {
                     placeholder="e.g. 250.00" style={{ ...S.input }} />
                   <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>Term will be auto-calculated from this + rate</div>
                 </div>
-                <Input label="Term (months â or leave blank)" type="number" value={debtForm.termMonths} onChange={e => setDebtForm(p => ({ ...p, termMonths: e.target.value }))} placeholder="e.g. 60" />
+                <Input label="Term (months — or leave blank)" type="number" value={debtForm.termMonths} onChange={e => setDebtForm(p => ({ ...p, termMonths: e.target.value }))} placeholder="e.g. 60" />
                 <Input label="Next due date" type="date" value={debtForm.dueDate} onChange={e => setDebtForm(p => ({ ...p, dueDate: e.target.value }))} />
                 {assets.length > 0 && (
                   <div>
                     <label style={S.label}>Linked asset (optional)</label>
                     <select value={debtForm.linkedAssetId} onChange={e => setDebtForm(p => ({ ...p, linkedAssetId: e.target.value }))} style={{ ...S.input, fontSize: 12 }}>
-                      <option value="">â none â</option>
+                      <option value="">— none —</option>
                       {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                   </div>
@@ -2047,7 +1885,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ââ TIMELINE ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ TIMELINE ══════════════════════════════════════════════════════════ */}
         {tab === "timeline" && (
           <div style={{ ...S.card, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}>
@@ -2083,7 +1921,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ââ SETTINGS ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ */}
+        {/* ══ SETTINGS ══════════════════════════════════════════════════════════ */}
         {tab === "settings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 700 }}>
 
@@ -2166,7 +2004,7 @@ export default function App() {
         )}
       </div>
 
-      {/* ââ LOAN PROMPT MODAL ââââââââââââââââââââââââââââââââââââââââââââââ */}
+      {/* ── LOAN PROMPT MODAL ────────────────────────────────────────────── */}
       {loanPrompt && (
         <LoanPromptModal
           prompt={loanPrompt}
@@ -2188,7 +2026,7 @@ export default function App() {
     </div>
   );
 }
-// âââ PMT CALCULATION âââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── PMT CALCULATION ─────────────────────────────────────────────────────────
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
 const DEBT_FREQ = { monthly: 12, fortnightly: 26, weekly: 52 };
@@ -2223,7 +2061,7 @@ function calcTermFromPayment(balance, annualRatePct, periodicPayment, frequency)
   return calcPayoffMonths(balance, annualRatePct, periodicPayment, frequency);
 }
 
-// âââ OPTIMAL DUE DATE CALCULATOR âââââââââââââââââââââââââââââââââââââââââââââ
+// ─── OPTIMAL DUE DATE CALCULATOR ─────────────────────────────────────────────
 // Finds the best day in the next 30 days to make a debt payment.
 // Strategy: find the day with highest estimated net cash position
 // (after income has landed, before the next cluster of bills).
@@ -2259,7 +2097,7 @@ function calcOptimalDueDate(timeline60, paymentAmount) {
   return bestDate;
 }
 
-// âââ ASSET CARD ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── ASSET CARD ──────────────────────────────────────────────────────────────
 function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -2546,7 +2384,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               <input type="number" value={form.knownPayment} onChange={fld("knownPayment")} placeholder="e.g. 250.00"
                 style={{ ...S.input }} />
               <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>
-                Enter your actual repayment â term will be calculated automatically
+                Enter your actual repayment — term will be calculated automatically
               </div>
             </div>
             <div>
@@ -2586,18 +2424,18 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
                 : <span style={{ color: T.textDim, fontSize: 12 }}>Set rate & term</span>}
             </div>
             {freq !== "monthly" && monthlyEquiv > 0 && (
-              <div style={{ fontSize: 10, color: T.textDim }}>â {fmt(monthlyEquiv, debt.currency)}/mo</div>
+              <div style={{ fontSize: 10, color: T.textDim }}>≈ {fmt(monthlyEquiv, debt.currency)}/mo</div>
             )}
           </div>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Total Interest</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.textMid }}>
-              {totalInterest > 0 ? fmt(totalInterest, debt.currency) : "â"}
+              {totalInterest > 0 ? fmt(totalInterest, debt.currency) : "—"}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Payoff</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{payoffDate || (term > 0 ? "â" : "Set term")}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{payoffDate || (term > 0 ? "—" : "Set term")}</div>
             {payoffMonths && <div style={{ fontSize: 10, color: T.textDim }}>{payoffMonths} months</div>}
           </div>
         </div>
@@ -2674,7 +2512,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
           <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: T.green }}>Cash-flow optimal payment date</div>
-              <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses â most headroom on {dateStr(suggestedDueDate)}.</div>
+              <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses — most headroom on {dateStr(suggestedDueDate)}.</div>
             </div>
             <button onClick={useSuggestedDate}
               style={{ background: T.green, color: "#0E0E10", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
@@ -2724,38 +2562,73 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
 function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) {
   const { tx, type, count } = prompt;
+  const isBNPL = tx.category === "BNPL Payment";
   const [selectedDebt, setSelectedDebt] = useState(debts[0]?.id || "");
   const [newDebtName, setNewDebtName] = useState(tx.description);
   const [loanAmount, setLoanAmount] = useState(parseFloat(tx.amount).toFixed(2));
+  const [instalments, setInstalments] = useState("3");
   const confirmedAmount = parseFloat(loanAmount) || 0;
+  const numInstalments = parseInt(instalments) || 3;
+  const firstPayment = parseFloat(tx.amount) || 0;
+  const remainingBalance = isBNPL ? Math.max(0, confirmedAmount - firstPayment) : confirmedAmount;
 
   return (
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
-      <div style={{ ...S.card, padding: 24, maxWidth: 440, width: "100%", background: T.surface }}>
-        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: type === "received" ? T.purple : T.accent }}>
-          {type === "received" ? "Loan Received â Liability" : "Loan Repayment â Reduces Liability"}
+      <div style={{ ...S.card, padding: 24, maxWidth: 460, width: "100%", background: T.surface }}>
+        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent }}>
+          {isBNPL ? "Buy Now Pay Later — Instalment" : type === "received" ? "Loan Received — Liability" : "Loan Repayment — Reduces Liability"}
         </div>
         <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>
-          {type === "received"
-            ? "This is a liability, not income â it creates a debt. Add it to the Debt tracker to track the balance."
+          {isBNPL ? "This looks like a BNPL instalment (e.g. Klarna). Set the total purchase amount and number of instalments to track the full debt."
+            : type === "received" ? "This is a liability, not income — it creates a debt. Add it to the Debt tracker to track the balance."
             : "This payment reduces a liability. Link it to an existing debt to update the outstanding balance."}
         </div>
-
         <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px", marginBottom: 16, display: "flex", justifyContent: "space-between", gap: 8, alignItems: "center" }}>
           <div style={{ flex: 1, minWidth: 0 }}>
             <div style={{ fontSize: 12, color: T.textMid, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{tx.description}</div>
-            {count > 1 && (
-              <div style={{ fontSize: 11, color: T.accent, marginTop: 2 }}>
-                {count} transactions â total aggregated
-              </div>
-            )}
+            {count > 1 && <div style={{ fontSize: 11, color: T.accent, marginTop: 2 }}>{count} transactions — total aggregated</div>}
+            {isBNPL && <div style={{ fontSize: 11, color: T.blue, marginTop: 2 }}>First instalment payment</div>}
           </div>
-          <span style={{ fontSize: 15, fontWeight: 700, color: type === "received" ? T.purple : T.accent, flexShrink: 0 }}>
+          <span style={{ fontSize: 15, fontWeight: 700, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent, flexShrink: 0 }}>
             {fmt(parseFloat(tx.amount), tx.currency || "EUR")}
           </span>
         </div>
-
-        {type === "received" && (
+        {isBNPL && (
+          <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
+            <div>
+              <label style={S.label}>Purchase / Debt name</label>
+              <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} />
+            </div>
+            <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
+              <div>
+                <label style={S.label}>Total purchase amount (€)</label>
+                <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} />
+              </div>
+              <div>
+                <label style={S.label}>Number of instalments</label>
+                <input type="number" min="2" max="36" value={instalments} onChange={e => setInstalments(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} />
+              </div>
+            </div>
+            <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: T.textMid }}>Total purchase</span>
+                <span style={{ color: T.text, fontWeight: 600 }}>{fmt(confirmedAmount)}</span>
+              </div>
+              <div style={{ display: "flex", justifyContent: "space-between", marginBottom: 4 }}>
+                <span style={{ color: T.textMid }}>First instalment (paid)</span>
+                <span style={{ color: T.green }}>−{fmt(firstPayment)}</span>
+              </div>
+              <div style={{ borderTop: `1px solid ${T.border}`, marginTop: 6, paddingTop: 6, display: "flex", justifyContent: "space-between" }}>
+                <span style={{ color: T.textMid }}>Remaining balance</span>
+                <span style={{ color: T.accent, fontWeight: 700 }}>{fmt(Math.max(0, remainingBalance))}</span>
+              </div>
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>
+                {numInstalments - 1} more payment{numInstalments - 1 !== 1 ? "s" : ""} of ~{fmt(confirmedAmount / numInstalments)} remaining
+              </div>
+            </div>
+          </div>
+        )}
+        {!isBNPL && type === "received" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             <div>
               <label style={S.label}>Debt / Liability name</label>
@@ -2763,51 +2636,43 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
             </div>
             <div>
               <label style={S.label}>Total loan amount {count > 1 ? `(${count} transactions combined)` : "(edit if needed)"}</label>
-              <input type="number" step="0.01" value={loanAmount}
-                onChange={e => setLoanAmount(e.target.value)}
-                style={{ ...S.input, borderColor: T.accent + "60" }} />
-              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>
-                Opening balance will be set to {fmt(confirmedAmount, tx.currency || "EUR")}.
-              </div>
+              <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.accent + "60" }} />
+              <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>Opening balance: {fmt(confirmedAmount, tx.currency || "EUR")}</div>
             </div>
           </div>
         )}
-
-        {type === "repayment" && debts.length > 0 && (
+        {!isBNPL && type === "repayment" && debts.length > 0 && (
           <div style={{ marginBottom: 16 }}>
             <label style={S.label}>Apply repayment to</label>
             <select value={selectedDebt} onChange={e => setSelectedDebt(e.target.value)} style={{ ...S.input, marginBottom: 6 }}>
-              {debts.map(d => (
-                <option key={d.id} value={d.id}>{d.name} â balance {fmt(parseFloat(d.balance), d.currency)}</option>
-              ))}
+              {debts.map(d => (<option key={d.id} value={d.id}>{d.name} — balance {fmt(parseFloat(d.balance), d.currency)}</option>))}
             </select>
-            <div style={{ fontSize: 11, color: T.textDim }}>
-              Balance will be reduced by {fmt(parseFloat(tx.amount).toFixed(2), tx.currency || "EUR")}
-              {count > 1 ? ` (${count} repayments combined).` : "."}
-            </div>
+            <div style={{ fontSize: 11, color: T.textDim }}>Balance reduced by {fmt(parseFloat(tx.amount).toFixed(2), tx.currency || "EUR")}{count > 1 ? ` (${count} combined).` : "."}</div>
           </div>
         )}
-
-        {type === "repayment" && debts.length === 0 && (
+        {!isBNPL && type === "repayment" && debts.length === 0 && (
           <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16, padding: "10px 12px", borderRadius: 8, background: T.surfaceHigh }}>
             No debts in tracker yet. Add a debt first in the Debt tab, then come back to link repayments.
           </div>
         )}
-
         <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
-          {type === "received" && confirmedAmount > 0 && (
-            <Btn onClick={() => onAddDebt({
-              id: Date.now().toString(),
-              name: newDebtName,
-              total: confirmedAmount.toFixed(2),
-              balance: confirmedAmount.toFixed(2),
-              currency: tx.currency || "EUR",
-              rate: "", termMonths: "", dueDate: "",
+          {isBNPL && confirmedAmount > 0 && (
+            <Btn style={{ background: T.blue, color: "#fff", border: "none" }} onClick={() => onAddDebt({
+              id: Date.now().toString(), name: newDebtName,
+              total: confirmedAmount.toFixed(2), balance: Math.max(0, remainingBalance).toFixed(2),
+              balanceAsOf: tx.date || today(), currency: tx.currency || "EUR",
+              rate: "0", termMonths: numInstalments.toString(), dueDate: "", type: "bnpl",
+              note: `${numInstalments} instalments of ~${fmt(confirmedAmount / numInstalments)}. First payment on ${tx.date}.`
             })}>
+              <Plus size={13} /> Track BNPL Debt
+            </Btn>
+          )}
+          {!isBNPL && type === "received" && confirmedAmount > 0 && (
+            <Btn onClick={() => onAddDebt({ id: Date.now().toString(), name: newDebtName, total: confirmedAmount.toFixed(2), balance: confirmedAmount.toFixed(2), currency: tx.currency || "EUR", rate: "", termMonths: "", dueDate: "" })}>
               <Plus size={13} /> Add to Debt Tracker
             </Btn>
           )}
-          {type === "repayment" && selectedDebt && (
+          {!isBNPL && type === "repayment" && selectedDebt && (
             <Btn variant="success" onClick={() => onReduceDebt(selectedDebt, parseFloat(parseFloat(tx.amount).toFixed(2)))}>
               <Check size={13} /> Apply Repayment
             </Btn>
@@ -2833,7 +2698,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
 
   return (
     <div className="row-hover" style={{ borderBottom: `1px solid ${T.border}`, padding: "10px 14px" }}>
-      {/* Line 1: date Â· description Â· nature badge Â· amount */}
+      {/* Line 1: date · description · nature badge · amount */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0, width: 80 }}>{dateStr(tx.date)}</span>
         <span style={{ fontSize: 13, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2849,7 +2714,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
         </span>
       </div>
 
-      {/* Line 2: category combo Â· badges Â· delete */}
+      {/* Line 2: category combo · badges · delete */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
         <CategoryCombo
           value={tx.category || ""}
@@ -2861,12 +2726,12 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
         {tx.debtAllocated && <Badge color="purple">Debt</Badge>}
         {tx.aiSuggested && <Badge color="blue">AI</Badge>}
         {tx.isPAYE && <Badge color="green">PAYE</Badge>}
-        {/* Debt allocation button â only on outgoing transactions when debts exist */}
+        {/* Debt allocation button — only on outgoing transactions when debts exist */}
         {!tx.isCredit && debts && debts.length > 0 && !allocating && (
           <button onClick={() => { setAllocating(true); setSelectedDebt(debts[0]?.id || ""); }}
             title="Allocate this payment toward a debt"
             style={{ background: tx.debtAllocated ? T.purpleDim : T.surfaceHigh, color: tx.debtAllocated ? T.purple : T.textDim, border: `1px solid ${tx.debtAllocated ? T.purple+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {tx.debtAllocated ? "Reallocate" : "â Debt"}
+            {tx.debtAllocated ? "Reallocate" : "→ Debt"}
           </button>
         )}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
@@ -2882,7 +2747,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
               <>
                 {preSnapshot && (
                   <div style={{ fontSize: 11, color: T.accent, background: T.accentDim+"30", borderRadius: 6, padding: "5px 8px" }}>
-                    This transaction ({dateStr(tx.date)}) is before the balance snapshot ({dateStr(chosen.balanceAsOf)}) â it will be tagged for record-keeping but the balance will not be reduced.
+                    This transaction ({dateStr(tx.date)}) is before the balance snapshot ({dateStr(chosen.balanceAsOf)}) — it will be tagged for record-keeping but the balance will not be reduced.
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -2890,7 +2755,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
                     style={{ ...S.input, fontSize: 11, padding: "4px 8px", flex: 1 }}>
                     {debts.map(d => (
                       <option key={d.id} value={d.id}>
-                        {d.name} â balance {fmt(parseFloat(d.balance), d.currency)}{d.balanceAsOf ? " (as of " + dateStr(d.balanceAsOf) + ")" : ""}
+                        {d.name} — balance {fmt(parseFloat(d.balance), d.currency)}{d.balanceAsOf ? " (as of " + dateStr(d.balanceAsOf) + ")" : ""}
                       </option>
                     ))}
                   </select>
@@ -2911,7 +2776,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
   );
 }
 
-// âââ MANUAL TX FORM ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── MANUAL TX FORM ──────────────────────────────────────────────────────────
 function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const [form, setForm] = useState({ date: today(), description: "", amount: "", currency: "EUR", isCredit: false, category: "", nature: "revenue" });
@@ -2976,7 +2841,7 @@ function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
   );
 }
 
-// âââ ADD OVERHEAD FORM ââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── ADD OVERHEAD FORM ────────────────────────────────────────────────────────
 function AddOverheadForm({ onAdd }) {
   const allGroups = [...Object.keys(BUILTIN_OVERHEAD_GROUPS), "Custom"];
   const [form, setForm] = useState({ label: "", group: "Other", nature: "revenue", newGroup: "" });
@@ -3021,7 +2886,7 @@ function AddOverheadForm({ onAdd }) {
 }
 
 
-// âââ RULE EDITOR âââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── RULE EDITOR ─────────────────────────────────────────────────────────────
 function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const [keywordsStr, setKeywordsStr] = useState((rule.keywords || []).join(", "));
@@ -3034,7 +2899,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
     if (keywords.length === 0 || !category) return;
     onChange({ ...rule, keywords, category, created: rule.created || today(), isNew: false });
     setDirty(false);
-    setSavedMsg("Rule saved â applying to transactions...");
+    setSavedMsg("Rule saved — applying to transactions...");
     setTimeout(() => setSavedMsg(""), 3000);
   }
 
@@ -3105,30 +2970,118 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
   );
 }
 
-// âââ BUDGETING TAB ââââââââââââââââââââââââââââââââââââââââââââââââââââââââââââ
+// ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
+const GDRIVE_CLIENT_ID = '746587088287-p2rdrcg501p2gv1erfdttpvukihcur63.apps.googleusercontent.com';
+const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_FILE_NAME = 'fintrack-ie-data.json';
+const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rules','ft_customOverheads','ft_salary','ft_firstPayday','ft_taxProfile','ft_budgets'];
+
+function loadGoogleIdentity() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+async function getAccessToken() {
+  await loadGoogleIdentity();
+  return new Promise((resolve, reject) => {
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES,
+      callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); },
+    });
+    client.requestAccessToken({ prompt: '' });
+  });
+}
+async function findOrCreateFile(token) {
+  const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } });
+  const data = await r.json();
+  if (data.files?.length > 0) return data.files[0].id;
+  const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  form.append('file', new Blob(['{}'], { type: 'application/json' }));
+  const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return (await cr.json()).id;
+}
+async function saveToGDrive(token) {
+  const fileId = await findOrCreateFile(token);
+  const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} });
+  data['_savedAt'] = new Date().toISOString();
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form });
+  return data['_savedAt'];
+}
+async function loadFromGDrive(token) {
+  const fileId = await findOrCreateFile(token);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) return null;
+  const data = await r.json();
+  if (!data || Object.keys(data).length <= 1) return null;
+  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
+  return data['_savedAt'] || 'unknown';
+}
+function DriveSync() {
+  const [status, setStatus] = useState('idle');
+  const [lastSync, setLastSync] = useState(() => { try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; } });
+  const [token, setToken] = useState(null);
+  const [msg, setMsg] = useState('');
+  const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
+  const signIn = async () => {
+    try {
+      setStatus('syncing'); setMsg('Signing in...');
+      const t = await getAccessToken(); setToken(t); setMsg('Loading from Drive...');
+      const savedAt = await loadFromGDrive(t);
+      if (savedAt) { const ts = new Date(savedAt).toLocaleString('en-IE'); setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('loaded'); setMsg('Loaded! Refreshing...'); setTimeout(() => window.location.reload(), 1000); }
+      else { setStatus('saved'); setMsg('No data yet — will save on next change.'); }
+    } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+  };
+  const save = async () => {
+    try {
+      setStatus('syncing'); setMsg('Saving...');
+      const t = token || await getAccessToken(); if (!token) setToken(t);
+      const savedAt = await saveToGDrive(t); const ts = new Date(savedAt).toLocaleString('en-IE');
+      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts); setStatus('saved'); setMsg('Saved!');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+  };
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim }}>{msg}</span>}
+      {lastSync && !msg && <span style={{ fontSize: 10, color: T.textDim }}>Synced {lastSync}</span>}
+      {!token ? (
+        <button onClick={signIn} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          Sync Drive
+        </button>
+      ) : (
+        <button onClick={save} disabled={status === 'syncing'} style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
+          Save
+        </button>
+      )}
+    </div>
+  );
+}
+
+// ─── BUDGETING TAB ────────────────────────────────────────────────────────────
 function BudgetingTab({ transactions, overheadGroups, committed }) {
   const [period, setPeriod] = useState("thisMonth");
-  const [budgets, setBudgets] = useState(() => {
-    try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; }
-  });
+  const [budgets, setBudgets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; } });
   const [editingGroup, setEditingGroup] = useState(null);
   useEffect(() => { try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {} }, [budgets]);
-
   const { from, to, label: periodLabel } = useMemo(() => {
     const now = new Date();
-    if (period === "thisMonth") {
-      return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
-    }
-    if (period === "lastMonth") {
-      const d = new Date(now.getFullYear(), now.getMonth()-1, 1);
-      return { from: d.toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0], label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
-    }
-    if (period === "last3") {
-      return { from: new Date(now.getFullYear(), now.getMonth()-2, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: "Last 3 Months" };
-    }
+    if (period === "thisMonth") return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+    if (period === "lastMonth") { const d = new Date(now.getFullYear(), now.getMonth()-1, 1); return { from: d.toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0], label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) }; }
+    if (period === "last3") return { from: new Date(now.getFullYear(), now.getMonth()-2, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: "Last 3 Months" };
     return { from: new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), 11, 31).toISOString().split("T")[0], label: `${now.getFullYear()}` };
   }, [period]);
-
   const actualByGroup = useMemo(() => {
     const r = {};
     transactions.forEach(tx => {
@@ -3139,39 +3092,32 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
     });
     return r;
   }, [transactions, overheadGroups, from, to]);
-
   const committedByGroup = useMemo(() => {
     const r = {};
     committed.filter(c => c.currency === "EUR").forEach(c => {
       const rec = RECURRENCES.find(x => x.v === c.recurrence);
-      const monthly = (parseFloat(c.amount) || 0) * (rec?.ppy || 0) / 12;
-      r[c.group || "Other"] = (r[c.group || "Other"] || 0) + monthly;
+      r[c.group || "Other"] = (r[c.group || "Other"] || 0) + (parseFloat(c.amount)||0) * (rec?.ppy||0) / 12;
     });
     return r;
   }, [committed]);
-
   const allGroups = useMemo(() => {
     const gs = new Set([...Object.keys(actualByGroup), ...Object.keys(budgets), ...Object.keys(committedByGroup)]);
     ["Income","Assets","Liabilities"].forEach(g => gs.delete(g));
     return [...gs].sort();
   }, [actualByGroup, budgets, committedByGroup]);
-
-  const totalBudget = Object.values(budgets).reduce((s, v) => s + (parseFloat(v)||0), 0);
-  const totalActual = Object.values(actualByGroup).reduce((s, v) => s + v, 0);
-
+  const totalBudget = Object.values(budgets).reduce((s,v) => s+(parseFloat(v)||0), 0);
+  const totalActual = Object.values(actualByGroup).reduce((s,v) => s+v, 0);
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
             <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
-            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} Â· Click any row to set a budget</div>
+            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div>
           </div>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
-            <option value="thisMonth">This Month</option>
-            <option value="lastMonth">Last Month</option>
-            <option value="last3">Last 3 Months</option>
-            <option value="thisYear">This Year</option>
+            <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option>
+            <option value="last3">Last 3 Months</option><option value="thisYear">This Year</option>
           </select>
         </div>
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
@@ -3191,36 +3137,35 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
         </div>
         {allGroups.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>Import transactions or add committed expenses to see budget data.</div>}
         {allGroups.map(group => {
-          const budget = parseFloat(budgets[group])||0, actual = actualByGroup[group]||0, comm = committedByGroup[group]||0;
-          const pct = budget > 0 ? Math.min(100, (actual/budget)*100) : 0, over = budget > 0 && actual > budget;
+          const budget=parseFloat(budgets[group])||0, actual=actualByGroup[group]||0, comm=committedByGroup[group]||0;
+          const pct=budget>0?Math.min(100,(actual/budget)*100):0, over=budget>0&&actual>budget;
           return (
             <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
-                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>â set</span>}</div>
-                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"â"}</div>
+                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>— set</span>}</div>
+                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"—"}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: over?T.red:T.text }}>{fmt(actual)}</div>
                 <div>{budget>0?<Badge color={over?"red":pct>80?"accent":"green"}>{over?"Over":Math.round(pct)+"%"}</Badge>:actual>0?<Badge color="dim">No budget</Badge>:null}</div>
               </div>
-              {budget > 0 && <div style={{ height: 2, background: T.border }}><div style={{ height: "100%", width: pct+"%", background: over?T.red:pct>80?T.accent:T.green, transition: "width 0.4s" }} /></div>}
-              {editingGroup === group && (
-                <div style={{ padding: "12px 20px", background: T.surfaceHigh, display: "flex", gap: 10, alignItems: "center" }} onClick={e => e.stopPropagation()}>
-                  <span style={{ fontSize: 12, color: T.textMid }}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
-                  <input type="number" placeholder="0.00" defaultValue={budgets[group]||""}
-                    style={{ ...S.input, width: 120, fontSize: 13, padding: "6px 10px" }}
-                    onKeyDown={e => {
-                      if (e.key==="Enter") { const v=parseFloat(e.target.value)||0; setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group))); setEditingGroup(null); }
-                      if (e.key==="Escape") setEditingGroup(null);
+              {budget>0&&<div style={{height:2,background:T.border}}><div style={{height:"100%",width:pct+"%",background:over?T.red:pct>80?T.accent:T.green,transition:"width 0.4s"}}/></div>}
+              {editingGroup===group&&(
+                <div style={{padding:"12px 20px",background:T.surfaceHigh,display:"flex",gap:10,alignItems:"center"}} onClick={e=>e.stopPropagation()}>
+                  <span style={{fontSize:12,color:T.textMid}}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
+                  <input type="number" placeholder="0.00" defaultValue={budgets[group]||""} style={{...S.input,width:120,fontSize:13,padding:"6px 10px"}}
+                    onKeyDown={e=>{
+                      if(e.key==="Enter"){const v=parseFloat(e.target.value)||0;setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}
+                      if(e.key==="Escape")setEditingGroup(null);
                     }} autoFocus />
-                  <span style={{ fontSize: 11, color: T.textDim }}>Enter to save Â· Esc to cancel</span>
-                  {budgets[group] && <button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
+                  <span style={{fontSize:11,color:T.textDim}}>Enter to save · Esc to cancel</span>
+                  {budgets[group]&&<button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>ð¡ Budgets are monthly targets. Click any row to set or edit.</div>
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>💡 Budgets are monthly targets. Click any row to set or edit.</div>
     </div>
   );
 }
