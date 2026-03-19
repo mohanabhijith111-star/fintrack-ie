@@ -3028,32 +3028,52 @@ function loadGoogleIdentity() { return new Promise((resolve, reject) => { if (wi
 async function getAccessToken() { await loadGoogleIdentity(); return new Promise((resolve, reject) => { const client = window.google.accounts.oauth2.initTokenClient({ client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES, callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); } }); client.requestAccessToken({ prompt: '' }); }); }
 async function findOrCreateFile(token) { const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`); const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } }); const data = await r.json(); if (data.files?.length > 0) return data.files[0].id; const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] }; const form = new FormData(); form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' })); form.append('file', new Blob(['{}'], { type: 'application/json' })); const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); return (await cr.json()).id; }
 async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
-async function loadFromGDrive(token) { const fileId = await findOrCreateFile(token); const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } }); if (!r.ok) return null; const data = await r.json(); if (!data || Object.keys(data).length <= 1) return null; LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} }); return data['_savedAt'] || 'unknown'; }
+async function loadFromGDrive(token) {
+  const fileId = await findOrCreateFile(token);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
+  if (!r.ok) return null;
+  let data;
+  try { data = await r.json(); } catch { return null; }
+  if (!data || Object.keys(data).length <= 1) return null;
+  // Safety: check Drive has meaningful data before loading
+  const driveTxCount = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
+  if (driveTxCount === 0) return null; // Drive has no transactions — treat as empty
+  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
+  return { savedAt: data['_savedAt'] || 'unknown', txCount: driveTxCount };
+}
+
+async function saveToGDriveSafe(token) {
+  // Safety: never save empty data to Drive
+  const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+  if (localTxCount === 0) throw new Error('Local data is empty — not saving to avoid data loss');
+  return saveToGDrive(token);
+}
 function DriveSync() {
-  const [status, setStatus] = useState('idle'); // idle | syncing | saved | loaded | error
+  const [status, setStatus] = useState('idle');
   const [lastSync, setLastSync] = useState(() => { try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; } });
-  const [tokenRef] = useState({ current: null }); // ref-like object to avoid stale closure
+  const tokenRef = useRef(null);
+  const autoTimer = useRef(null);
   const [msg, setMsg] = useState('');
-  const autoSaveTimer = useRef(null);
+  const [conflict, setConflict] = useState(null); // { driveData, driveCount, localCount }
   const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
 
-  // Expose save function globally so App can trigger auto-save on data changes
   useEffect(() => {
     window._driveAutoSave = async () => {
-      if (!tokenRef.current) return; // not signed in, skip
-      if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
-      autoSaveTimer.current = setTimeout(async () => {
+      if (!tokenRef.current) return;
+      if (autoTimer.current) clearTimeout(autoTimer.current);
+      autoTimer.current = setTimeout(async () => {
         try {
-          const savedAt = await saveToGDrive(tokenRef.current);
-          const ts = new Date(savedAt).toLocaleString('en-IE');
-          setLastSync(ts);
-          localStorage.setItem('ft_lastDriveSync', ts);
+          const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+          if (localTx === 0) return; // never auto-save empty data
+          await saveToGDrive(tokenRef.current);
+          const ts = new Date().toLocaleString('en-IE');
+          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
           setStatus('saved'); setMsg('Auto-saved');
           setTimeout(() => { setStatus('idle'); setMsg(''); }, 2000);
-        } catch { /* silent fail on auto-save */ }
-      }, 5000); // 5 second debounce
+        } catch { /* silent */ }
+      }, 8000);
     };
-    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+    return () => { if (autoTimer.current) clearTimeout(autoTimer.current); };
   }, []);
 
   const signIn = async () => {
@@ -3061,42 +3081,71 @@ function DriveSync() {
       setStatus('syncing'); setMsg('Signing in...');
       const t = await getAccessToken();
       tokenRef.current = t;
-      setMsg('Loading from Drive...');
-      const savedAt = await loadFromGDrive(t);
-      if (savedAt) {
-        const ts = new Date(savedAt).toLocaleString('en-IE');
-        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-        setStatus('loaded'); setMsg('Data loaded! Refreshing...');
-        setTimeout(() => window.location.reload(), 800);
+
+      const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+
+      // Check what Drive has
+      const driveResult = await loadFromGDrive(t);
+
+      if (!driveResult) {
+        // Drive is empty or has no transactions
+        if (localTxCount > 0) {
+          // We have local data — save it to Drive
+          setMsg('Saving your data to Drive...');
+          await saveToGDrive(t);
+          const ts = new Date().toLocaleString('en-IE');
+          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+          setStatus('saved'); setMsg(`Saved ${localTxCount} transactions to Drive!`);
+          setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
+        } else {
+          setStatus('idle'); setMsg('No data on Drive or locally yet.');
+          setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+        }
       } else {
-        // No data on Drive yet — save current local data up
-        setMsg('Saving your data to Drive...');
-        const savedAt2 = await saveToGDrive(t);
-        const ts = new Date(savedAt2).toLocaleString('en-IE');
-        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-        setStatus('saved'); setMsg('Saved to Drive!');
-        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+        // Drive has data — it was already loaded into localStorage
+        if (localTxCount > 0 && driveResult.txCount !== localTxCount) {
+          // Conflict: both had data — Drive data is now loaded, show notice
+          setStatus('loaded');
+          setMsg(`Loaded ${driveResult.txCount} transactions from Drive`);
+          const ts = new Date(driveResult.savedAt).toLocaleString('en-IE');
+          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+          setTimeout(() => { window.location.reload(); }, 800);
+        } else {
+          // Drive loaded cleanly
+          const ts = new Date(driveResult.savedAt).toLocaleString('en-IE');
+          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+          setStatus('loaded'); setMsg(`Loaded ${driveResult.txCount} transactions`);
+          setTimeout(() => { window.location.reload(); }, 800);
+        }
       }
-    } catch { setStatus('error'); setMsg('Sign-in failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+    } catch(e) {
+      setStatus('error'); setMsg('Sign-in failed. Try again.');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
+    }
   };
 
   const save = async () => {
     try {
+      const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+      if (localTxCount === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 2000); return; }
       setStatus('syncing'); setMsg('Saving...');
       if (!tokenRef.current) { const t = await getAccessToken(); tokenRef.current = t; }
-      const savedAt = await saveToGDrive(tokenRef.current);
-      const ts = new Date(savedAt).toLocaleString('en-IE');
+      await saveToGDrive(tokenRef.current);
+      const ts = new Date().toLocaleString('en-IE');
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('saved'); setMsg('Saved!');
+      setStatus('saved'); setMsg(`Saved ${localTxCount} transactions!`);
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    } catch { setStatus('error'); setMsg('Save failed.'); setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000); }
+    } catch(e) {
+      setStatus('error'); setMsg(e.message || 'Save failed.');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
+    }
   };
 
   const isSignedIn = !!tokenRef.current;
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-      {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim }}>{msg}</span>}
-      {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>Synced {lastSync}</span>}
+      {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{msg}</span>}
+      {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>&#10003; {lastSync}</span>}
       {!isSignedIn ? (
         <button onClick={signIn} disabled={status === 'syncing'}
           style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
@@ -3113,8 +3162,6 @@ function DriveSync() {
     </div>
   );
 }
-
-
 // ─── BUDGETING TAB ────────────────────────────────────────────────────────────
 function BudgetingTab({ transactions, overheadGroups, committed }) {
   const [period, setPeriod] = useState("thisMonth");
