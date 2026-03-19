@@ -1284,8 +1284,7 @@ export default function App() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 10, flexWrap: "wrap" }}>
-            <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1, minWidth: 0 }}>
+          <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 6 }}>
             {TABS.map(t => {
               const Icon = t.icon;
               const active = tab === t.id;
@@ -1300,7 +1299,8 @@ export default function App() {
                 </button>
               );
             })}
-            </div>
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 6 }}>
             <DriveSync />
           </div>
         </div>
@@ -3213,16 +3213,16 @@ function DriveSync() {
       ) : (
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={pull} disabled={status === 'syncing'}
-            title="Pull latest data FROM Drive to this device"
+            title="Refresh — load latest data from Drive"
             style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.blue + '60', color: T.blue, whiteSpace: 'nowrap' }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
-            Pull
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+            Refresh
           </button>
           <button onClick={push} disabled={status === 'syncing'}
-            title="Push data FROM this device TO Drive"
+            title="Save — upload this device's data to Drive"
             style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green, whiteSpace: 'nowrap' }}>
-            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="16 7 12 3 8 7"/><line x1="12" y1="3" x2="12" y2="12"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
-            Push
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
+            Save
           </button>
         </div>
       )}
