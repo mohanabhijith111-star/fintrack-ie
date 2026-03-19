@@ -731,14 +731,26 @@ function MiniBar({ pct, color = "accent" }) {
   );
 }
 
-function StatCard({ label, value, sub, color = "text", trend }) {
+function StatCard({ label, value, sub, color = "text", trend, onClick, detail }) {
   const colors = { text: T.text, green: T.green, red: T.red, accent: T.accent, dim: T.textMid };
+  const [open, setOpen] = useState(false);
+  const clickable = !!onClick || !!detail;
   return (
-    <div style={{ ...S.card, padding: "16px 20px" }}>
-      <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
-      <div style={{ fontSize: 22, fontWeight: 700, color: colors[color] || T.text, fontFamily: "inherit", letterSpacing: "-0.02em" }}>{value}</div>
-      {sub && <div style={{ fontSize: 12, color: T.textDim, marginTop: 3 }}>{sub}</div>}
-    </div>
+    <>
+      <div onClick={() => { if (detail) setOpen(o => !o); if (onClick) onClick(); }}
+        style={{ ...S.card, padding: "16px 20px", cursor: clickable ? "pointer" : "default", position: "relative" }}
+        className={clickable ? "row-hover" : ""}>
+        <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: colors[color] || T.text, fontFamily: "inherit", letterSpacing: "-0.02em" }}>{value}</div>
+        {sub && <div style={{ fontSize: 12, color: T.textDim, marginTop: 3 }}>{sub}</div>}
+        {clickable && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 10, color: T.textDim }}>{detail && (open ? "▲" : "▼")}</div>}
+      </div>
+      {open && detail && (
+        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: `1px solid ${T.border}`, gridColumn: "1 / -1" }}>
+          {detail}
+        </div>
+      )}
+    </>
   );
 }
 
@@ -1272,8 +1284,8 @@ export default function App() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 10 }}>
-            <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 10, flexWrap: "wrap" }}>
+            <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1, minWidth: 0 }}>
             {TABS.map(t => {
               const Icon = t.icon;
               const active = tab === t.id;
@@ -1301,12 +1313,23 @@ export default function App() {
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* KPI row — 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green" />
-              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red" />
-              <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"} />
-              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent" />
+              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
+                detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
+              />
+              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red"
+                detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
+              />
+              <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
+                detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
+              />
+              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent"
+                detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
+              />
               {payroll && <StatCard label="Fortnightly Net" value={fmt(payroll.perNet)} color="text" sub={fmt(payroll.takeHome) + " /yr"} />}
-              <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions" />
+              <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
+                onClick={() => setTab("transactions")}
+                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more — click to view all</div>}</div>}
+              />
             </div>
 
             {/* Two column — stacks on mobile */}
@@ -3054,9 +3077,10 @@ function DriveSync() {
   const tokenRef = useRef(null);
   const autoTimer = useRef(null);
   const [msg, setMsg] = useState('');
-  const [conflict, setConflict] = useState(null); // { driveData, driveCount, localCount }
+
   const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
 
+  // Auto-save after data changes (only when signed in and data exists)
   useEffect(() => {
     window._driveAutoSave = async () => {
       if (!tokenRef.current) return;
@@ -3064,11 +3088,11 @@ function DriveSync() {
       autoTimer.current = setTimeout(async () => {
         try {
           const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-          if (localTx === 0) return; // never auto-save empty data
+          if (localTx === 0) return;
           await saveToGDrive(tokenRef.current);
           const ts = new Date().toLocaleString('en-IE');
           setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-          setStatus('saved'); setMsg('Auto-saved');
+          setMsg('Saved'); setStatus('saved');
           setTimeout(() => { setStatus('idle'); setMsg(''); }, 2000);
         } catch { /* silent */ }
       }, 8000);
@@ -3076,88 +3100,131 @@ function DriveSync() {
     return () => { if (autoTimer.current) clearTimeout(autoTimer.current); };
   }, []);
 
+  const getToken = async () => {
+    if (tokenRef.current) return tokenRef.current;
+    const t = await getAccessToken();
+    tokenRef.current = t;
+    return t;
+  };
+
+  // PUSH — save local data to Drive
+  const push = async () => {
+    try {
+      const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+      if (localTx === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 2000); return; }
+      setStatus('syncing'); setMsg('Saving to Drive...');
+      const t = await getToken();
+      await saveToGDrive(t);
+      const ts = new Date().toLocaleString('en-IE');
+      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+      setStatus('saved'); setMsg(`Saved ${localTx} transactions`);
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    } catch(e) {
+      setStatus('error'); setMsg('Save failed');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    }
+  };
+
+  // PULL — always fetch latest from Drive and apply it
+  const pull = async () => {
+    try {
+      setStatus('syncing'); setMsg('Fetching from Drive...');
+      const t = await getToken();
+      // Direct fetch — bypass the "don't overwrite" guard for manual pull
+      const fileId = await findOrCreateFile(t);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+        headers: { Authorization: `Bearer ${t}` }
+      });
+      if (!r.ok) throw new Error('Could not read Drive file');
+      const data = await r.json();
+      const driveTx = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
+      if (driveTx === 0) {
+        setStatus('error'); setMsg('No data on Drive yet');
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+        return;
+      }
+      // Apply Drive data to localStorage
+      LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
+      const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
+      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+      setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions — reloading`);
+      setTimeout(() => window.location.reload(), 800);
+    } catch(e) {
+      setStatus('error'); setMsg('Pull failed');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    }
+  };
+
+  // First time sign in
   const signIn = async () => {
     try {
       setStatus('syncing'); setMsg('Signing in...');
       const t = await getAccessToken();
       tokenRef.current = t;
+      const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
+      // Check Drive
+      const fileId = await findOrCreateFile(t);
+      const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${t}` } });
+      const data = r.ok ? await r.json() : {};
+      const driveTx = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
 
-      const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-
-      // Check what Drive has
-      const driveResult = await loadFromGDrive(t);
-
-      if (!driveResult) {
-        // Drive is empty or has no transactions
-        if (localTxCount > 0) {
-          // We have local data — save it to Drive
-          setMsg('Saving your data to Drive...');
-          await saveToGDrive(t);
-          const ts = new Date().toLocaleString('en-IE');
-          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-          setStatus('saved'); setMsg(`Saved ${localTxCount} transactions to Drive!`);
-          setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
-        } else {
-          setStatus('idle'); setMsg('No data on Drive or locally yet.');
-          setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-        }
+      if (driveTx > 0 && localTx === 0) {
+        // Drive has data, local empty — pull from Drive
+        LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
+        const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
+        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions`);
+        setTimeout(() => window.location.reload(), 800);
+      } else if (localTx > 0 && driveTx === 0) {
+        // Local has data, Drive empty — push to Drive
+        setMsg(`Saving ${localTx} transactions to Drive...`);
+        await saveToGDrive(t);
+        const ts = new Date().toLocaleString('en-IE');
+        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setStatus('saved'); setMsg(`Saved ${localTx} transactions to Drive!`);
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
+      } else if (localTx > 0 && driveTx > 0) {
+        // Both have data — show options
+        setStatus('saved'); setMsg(`Signed in · ${localTx} local, ${driveTx} on Drive`);
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
       } else {
-        // Drive has data — it was already loaded into localStorage
-        if (localTxCount > 0 && driveResult.txCount !== localTxCount) {
-          // Conflict: both had data — Drive data is now loaded, show notice
-          setStatus('loaded');
-          setMsg(`Loaded ${driveResult.txCount} transactions from Drive`);
-          const ts = new Date(driveResult.savedAt).toLocaleString('en-IE');
-          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-          setTimeout(() => { window.location.reload(); }, 800);
-        } else {
-          // Drive loaded cleanly
-          const ts = new Date(driveResult.savedAt).toLocaleString('en-IE');
-          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-          setStatus('loaded'); setMsg(`Loaded ${driveResult.txCount} transactions`);
-          setTimeout(() => { window.location.reload(); }, 800);
-        }
+        setStatus('idle'); setMsg('Signed in · no data yet');
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
       }
     } catch(e) {
-      setStatus('error'); setMsg('Sign-in failed. Try again.');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
-    }
-  };
-
-  const save = async () => {
-    try {
-      const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-      if (localTxCount === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 2000); return; }
-      setStatus('syncing'); setMsg('Saving...');
-      if (!tokenRef.current) { const t = await getAccessToken(); tokenRef.current = t; }
-      await saveToGDrive(tokenRef.current);
-      const ts = new Date().toLocaleString('en-IE');
-      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('saved'); setMsg(`Saved ${localTxCount} transactions!`);
+      setStatus('error'); setMsg('Sign-in failed');
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
-    } catch(e) {
-      setStatus('error'); setMsg(e.message || 'Save failed.');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
     }
   };
 
   const isSignedIn = !!tokenRef.current;
+  const c = colors[status] || T.textDim;
+
   return (
-    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
-      {msg && <span style={{ fontSize: 11, color: colors[status] || T.textDim, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{msg}</span>}
+    <div style={{ display: 'flex', alignItems: 'center', gap: 6, flexShrink: 0 }}>
+      {msg && <span style={{ fontSize: 11, color: c, maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{msg}</span>}
       {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>&#10003; {lastSync}</span>}
       {!isSignedIn ? (
         <button onClick={signIn} disabled={status === 'syncing'}
           style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/></svg>
           Sync Drive
         </button>
       ) : (
-        <button onClick={save} disabled={status === 'syncing'}
-          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green, whiteSpace: 'nowrap' }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="20 6 9 17 4 12"/></svg>
-          Save Now
-        </button>
+        <div style={{ display: 'flex', gap: 4 }}>
+          <button onClick={pull} disabled={status === 'syncing'}
+            title="Pull latest data FROM Drive to this device"
+            style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.blue + '60', color: T.blue, whiteSpace: 'nowrap' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="8 17 12 21 16 17"/><line x1="12" y1="12" x2="12" y2="21"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+            Pull
+          </button>
+          <button onClick={push} disabled={status === 'syncing'}
+            title="Push data FROM this device TO Drive"
+            style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green, whiteSpace: 'nowrap' }}>
+            <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="16 7 12 3 8 7"/><line x1="12" y1="3" x2="12" y2="12"/><path d="M20.88 18.09A5 5 0 0 0 18 9h-1.26A8 8 0 1 0 3 16.29"/></svg>
+            Push
+          </button>
+        </div>
       )}
     </div>
   );
