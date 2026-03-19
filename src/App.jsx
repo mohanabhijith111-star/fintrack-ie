@@ -842,22 +842,23 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
   useEffect(() => { try { localStorage.setItem("ft_rules", JSON.stringify(rules)); } catch {} }, [rules]);
   useEffect(() => { try { localStorage.setItem("ft_customOverheads", JSON.stringify(customOverheads)); } catch {} }, [customOverheads]);
-  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
-  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
-  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
   const [importQueue, setImportQueue] = useState([]); // transactions waiting to be confirmed
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const fileRef = useRef();
 
   // Payroll — pre-filled with mock PAYE data
-  const [salary, setSalary] = useState(() => localStorage.getItem("ft_salary") || "");
-  const [firstPayday, setFirstPayday] = useState(() => localStorage.getItem("ft_firstPayday") || "");
+  const [salary, setSalary] = useState(() => { try { return localStorage.getItem("ft_salary") || ""; } catch(e) { return ""; } });
+  const [firstPayday, setFirstPayday] = useState(() => { try { return localStorage.getItem("ft_firstPayday") || ""; } catch(e) { return ""; } });
   const [taxProfile, setTaxProfile] = useState(() => {
     try { const s = localStorage.getItem("ft_taxProfile"); if (s) return JSON.parse(s); } catch {}
     return { maritalStatus: "single", customCutoff: "", payFrequency: "fortnightly", personalCredit: 2000, employeeCredit: 2000, earnedIncomeCredit: 0, homeCarerCredit: 0, singlePersonChildCarerCredit: 0, rentCredit: 0, otherCredits: 0, publicService: false, pensionRate: 6.5, ascScheme: "standard", afterTaxDeduction: 0 };
   });
   const [paydaysAdded, setPaydaysAdded] = useState(false);
+
+  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
+  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
+  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
 
   // Committed form
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", amount: "", currency: "EUR", startDate: today(), recurrence: "monthly", isFixed: true, note: "" });
@@ -921,13 +922,10 @@ export default function App() {
         if (d >= now && d <= end) events.push({ date: d, label: "Payday (PAYE)", amount: payroll.perNet, currency: "EUR", type: "income" });
       });
     }
-    // Detect recurring income from transaction history and project forward
     const recurringIncome = detectRecurring(transactions.filter(tx => tx.isCredit && !tx.isPAYE));
     recurringIncome.forEach(({ description, amount, recurrence, dates }) => {
       if (!dates.length) return;
-      const lastDate = new Date(dates[dates.length - 1] + "T12:00:00");
-      // Project forward from last occurrence
-      let next = new Date(lastDate);
+      let next = new Date(dates[dates.length - 1] + "T12:00:00");
       for (let i = 0; i < 20; i++) {
         if (recurrence === "weekly") next = new Date(next.getTime() + 7 * 86400000);
         else if (recurrence === "fortnightly") next = new Date(next.getTime() + 14 * 86400000);
@@ -2949,103 +2947,70 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
     try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; }
   });
   const [editingGroup, setEditingGroup] = useState(null);
+  useEffect(() => { try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {} }, [budgets]);
 
-  useEffect(() => {
-    try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {}
-  }, [budgets]);
-
-  // Date range for selected period
   const { from, to, label: periodLabel } = useMemo(() => {
     const now = new Date();
     if (period === "thisMonth") {
-      const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      return { from, to, label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+      return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
     }
     if (period === "lastMonth") {
-      const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
-      const from = d.toISOString().split("T")[0];
-      const to = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0];
-      return { from, to, label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+      const d = new Date(now.getFullYear(), now.getMonth()-1, 1);
+      return { from: d.toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0], label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
     }
     if (period === "last3") {
-      const from = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().split("T")[0];
-      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      return { from, to, label: "Last 3 Months" };
+      return { from: new Date(now.getFullYear(), now.getMonth()-2, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: "Last 3 Months" };
     }
-    // thisYear
-    const from = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
-    const to = new Date(now.getFullYear(), 11, 31).toISOString().split("T")[0];
-    return { from, to, label: `${now.getFullYear()}` };
+    return { from: new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), 11, 31).toISOString().split("T")[0], label: `${now.getFullYear()}` };
   }, [period]);
 
-  // Actual spending by group
   const actualByGroup = useMemo(() => {
-    const result = {};
+    const r = {};
     transactions.forEach(tx => {
       if (tx.isCredit || !tx.category || tx.date < from || tx.date > to) return;
-      // find group for this category
-      let group = "Other";
-      for (const [g, cats] of Object.entries(overheadGroups)) {
-        if (cats.includes(tx.category)) { group = g; break; }
-      }
-      result[group] = (result[group] || 0) + tx.amount;
+      let g = "Other";
+      for (const [grp, cats] of Object.entries(overheadGroups)) { if (cats.includes(tx.category)) { g = grp; break; } }
+      r[g] = (r[g] || 0) + tx.amount;
     });
-    return result;
+    return r;
   }, [transactions, overheadGroups, from, to]);
 
-  // Committed monthly equivalent per group
   const committedByGroup = useMemo(() => {
-    const result = {};
+    const r = {};
     committed.filter(c => c.currency === "EUR").forEach(c => {
-      const r = RECURRENCES.find(r => r.v === c.recurrence);
-      const monthly = (parseFloat(c.amount) || 0) * (r?.ppy || 0) / 12;
-      const group = c.group || "Other";
-      result[group] = (result[group] || 0) + monthly;
+      const rec = RECURRENCES.find(x => x.v === c.recurrence);
+      const monthly = (parseFloat(c.amount) || 0) * (rec?.ppy || 0) / 12;
+      r[c.group || "Other"] = (r[c.group || "Other"] || 0) + monthly;
     });
-    return result;
+    return r;
   }, [committed]);
 
   const allGroups = useMemo(() => {
-    const gs = new Set([
-      ...Object.keys(actualByGroup),
-      ...Object.keys(budgets),
-      ...Object.keys(committedByGroup),
-    ]);
-    // Remove income/balance sheet groups
-    ["Income", "Assets", "Liabilities"].forEach(g => gs.delete(g));
+    const gs = new Set([...Object.keys(actualByGroup), ...Object.keys(budgets), ...Object.keys(committedByGroup)]);
+    ["Income","Assets","Liabilities"].forEach(g => gs.delete(g));
     return [...gs].sort();
   }, [actualByGroup, budgets, committedByGroup]);
 
-  const totalBudget = Object.values(budgets).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + (parseFloat(v)||0), 0);
   const totalActual = Object.values(actualByGroup).reduce((s, v) => s + v, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-      {/* Header */}
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div>
             <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
             <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div>
           </div>
-          <select value={period} onChange={e => setPeriod(e.target.value)}
-            style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
+          <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
             <option value="thisMonth">This Month</option>
             <option value="lastMonth">Last Month</option>
             <option value="last3">Last 3 Months</option>
             <option value="thisYear">This Year</option>
           </select>
         </div>
-
-        {/* Summary bar */}
         <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
-          {[
-            { label: "Total Budget", value: fmt(totalBudget), color: T.accent },
-            { label: "Total Spent", value: fmt(totalActual), color: totalActual > totalBudget && totalBudget > 0 ? T.red : T.text },
-            { label: "Remaining", value: fmt(Math.max(0, totalBudget - totalActual)), color: T.green },
-          ].map(({ label, value, color }) => (
+          {[{label:"Total Budget",value:fmt(totalBudget),color:T.accent},{label:"Total Spent",value:fmt(totalActual),color:totalActual>totalBudget&&totalBudget>0?T.red:T.text},{label:"Remaining",value:fmt(Math.max(0,totalBudget-totalActual)),color:T.green}].map(({label,value,color})=>(
             <div key={label} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
               <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
               <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
@@ -3053,97 +3018,44 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
           ))}
         </div>
       </div>
-
-      {/* Group rows */}
       <div style={{ ...S.card, overflow: "hidden" }}>
         <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
-          {["Category Group", "Budget/Mo", "Committed", "Actual", "Status"].map(h => (
+          {["Category Group","Budget/Mo","Committed","Actual","Status"].map(h=>(
             <div key={h} style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
           ))}
         </div>
-
-        {allGroups.length === 0 && (
-          <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>
-            Import transactions or add committed expenses to see budget data.
-          </div>
-        )}
-
+        {allGroups.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>Import transactions or add committed expenses to see budget data.</div>}
         {allGroups.map(group => {
-          const budget = parseFloat(budgets[group]) || 0;
-          const actual = actualByGroup[group] || 0;
-          const committed_ = committedByGroup[group] || 0;
-          const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
-          const over = budget > 0 && actual > budget;
-          const isEditing = editingGroup === group;
-
+          const budget = parseFloat(budgets[group])||0, actual = actualByGroup[group]||0, comm = committedByGroup[group]||0;
+          const pct = budget > 0 ? Math.min(100, (actual/budget)*100) : 0, over = budget > 0 && actual > budget;
           return (
             <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
-              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }}
-                onClick={() => setEditingGroup(isEditing ? null : group)}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
-                <div style={{ fontSize: 13, color: budget > 0 ? T.accent : T.textDim }}>
-                  {budget > 0 ? fmt(budget) : <span style={{ fontSize: 11 }}>— set</span>}
-                </div>
-                <div style={{ fontSize: 13, color: committed_ > 0 ? T.text : T.textDim }}>
-                  {committed_ > 0 ? fmt(committed_) : "—"}
-                </div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: over ? T.red : T.text }}>{fmt(actual)}</div>
-                <div>
-                  {budget > 0 ? (
-                    <Badge color={over ? "red" : pct > 80 ? "accent" : "green"}>
-                      {over ? "Over" : Math.round(pct) + "%"}
-                    </Badge>
-                  ) : actual > 0 ? (
-                    <Badge color="dim">No budget</Badge>
-                  ) : null}
-                </div>
+                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>— set</span>}</div>
+                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"—"}</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: over?T.red:T.text }}>{fmt(actual)}</div>
+                <div>{budget>0?<Badge color={over?"red":pct>80?"accent":"green"}>{over?"Over":Math.round(pct)+"%"}</Badge>:actual>0?<Badge color="dim">No budget</Badge>:null}</div>
               </div>
-
-              {/* Mini progress bar */}
-              {budget > 0 && (
-                <div style={{ height: 2, background: T.border, marginTop: -2 }}>
-                  <div style={{ height: "100%", width: pct + "%", background: over ? T.red : pct > 80 ? T.accent : T.green, transition: "width 0.4s" }} />
-                </div>
-              )}
-
-              {/* Inline budget editor */}
-              {isEditing && (
-                <div style={{ padding: "12px 20px", background: T.surfaceHigh, display: "flex", gap: 10, alignItems: "center" }}
-                  onClick={e => e.stopPropagation()}>
-                  <span style={{ fontSize: 12, color: T.textMid, minWidth: 120 }}>Monthly budget for <b style={{ color: T.text }}>{group}</b>:</span>
-                  <input
-                    type="number"
-                    placeholder="0.00"
-                    defaultValue={budgets[group] || ""}
+              {budget > 0 && <div style={{ height: 2, background: T.border }}><div style={{ height: "100%", width: pct+"%", background: over?T.red:pct>80?T.accent:T.green, transition: "width 0.4s" }} /></div>}
+              {editingGroup === group && (
+                <div style={{ padding: "12px 20px", background: T.surfaceHigh, display: "flex", gap: 10, alignItems: "center" }} onClick={e => e.stopPropagation()}>
+                  <span style={{ fontSize: 12, color: T.textMid }}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
+                  <input type="number" placeholder="0.00" defaultValue={budgets[group]||""}
                     style={{ ...S.input, width: 120, fontSize: 13, padding: "6px 10px" }}
                     onKeyDown={e => {
-                      if (e.key === "Enter") {
-                        const v = parseFloat(e.target.value) || 0;
-                        setBudgets(prev => v > 0 ? { ...prev, [group]: v } : Object.fromEntries(Object.entries(prev).filter(([k]) => k !== group)));
-                        setEditingGroup(null);
-                      }
-                      if (e.key === "Escape") setEditingGroup(null);
-                    }}
-                    autoFocus
-                  />
-                  <span style={{ fontSize: 11, color: T.textDim }}>Press Enter to save, Esc to cancel</span>
-                  {budgets[group] && (
-                    <button onClick={() => { setBudgets(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== group))); setEditingGroup(null); }}
-                      style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11 }}>
-                      Clear
-                    </button>
-                  )}
+                      if (e.key==="Enter") { const v=parseFloat(e.target.value)||0; setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group))); setEditingGroup(null); }
+                      if (e.key==="Escape") setEditingGroup(null);
+                    }} autoFocus />
+                  <span style={{ fontSize: 11, color: T.textDim }}>Enter to save · Esc to cancel</span>
+                  {budgets[group] && <button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
                 </div>
               )}
             </div>
           );
         })}
       </div>
-
-      {/* Tip */}
-      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
-        💡 Budgets are monthly targets. Click any row to set or edit. Committed expenses show your scheduled fixed costs for reference.
-      </div>
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>💡 Budgets are monthly targets. Click any row to set or edit.</div>
     </div>
   );
 }
