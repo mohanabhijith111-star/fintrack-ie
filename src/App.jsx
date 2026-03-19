@@ -187,6 +187,7 @@ function detectRecurring(transactions) {
   return results.sort((a, b) => b.dates.length - a.dates.length);
 }
 
+const INCOME_CATS = new Set(BUILTIN_OVERHEAD_GROUPS["Income"]);
 
 // ─── IRISH BANK HOLIDAYS 2026 ─────────────────────────────────────────────────
 const IE_BANK_HOLIDAYS = new Set(["2026-01-01","2026-02-02","2026-03-17","2026-04-03","2026-04-06","2026-05-04","2026-06-01","2026-08-03","2026-10-26","2026-12-25","2026-12-26"]);
@@ -610,7 +611,7 @@ async function categoriseTransactions(transactions, rules) {
   // Batch uncategorised for Claude
   const uncategorised = withRules.filter(tx => !tx.category);
   if (uncategorised.length === 0) return withRules;
-  const catList = Object.values(BUILTIN_OVERHEAD_GROUPS).flat().join(", ");
+  const catList = ALL_CATEGORIES.map(c => c.label).join(", ");
   const txList = uncategorised.slice(0, 40).map((tx, i) => `${i + 1}. "${tx.description}" (${tx.isCredit ? "credit" : "debit"} ${fmt(tx.amount)})`).join("\n");
   try {
     const res = await fetch("https://api.anthropic.com/v1/messages", {
@@ -809,7 +810,7 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
 const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
-  { id: "payroll", label: "Payroll", icon: DollarSign },
+  { id: "budgeting", label: "Budgeting", icon: Target },
   { id: "committed", label: "Committed", icon: Calendar },
   { id: "debt", label: "Debt", icon: CreditCard },
   { id: "timeline", label: "Timeline", icon: Clock },
@@ -841,23 +842,22 @@ export default function App() {
   useEffect(() => { try { localStorage.setItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
   useEffect(() => { try { localStorage.setItem("ft_rules", JSON.stringify(rules)); } catch {} }, [rules]);
   useEffect(() => { try { localStorage.setItem("ft_customOverheads", JSON.stringify(customOverheads)); } catch {} }, [customOverheads]);
+  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
+  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
+  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
   const [importQueue, setImportQueue] = useState([]); // transactions waiting to be confirmed
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
   const fileRef = useRef();
 
   // Payroll — pre-filled with mock PAYE data
-  const [salary, setSalary] = useState(() => { try { return localStorage.getItem("ft_salary") || ""; } catch { return ""; } });
-  const [firstPayday, setFirstPayday] = useState(() => { try { return localStorage.getItem("ft_firstPayday") || ""; } catch { return ""; } });
+  const [salary, setSalary] = useState(() => localStorage.getItem("ft_salary") || "");
+  const [firstPayday, setFirstPayday] = useState(() => localStorage.getItem("ft_firstPayday") || "");
   const [taxProfile, setTaxProfile] = useState(() => {
     try { const s = localStorage.getItem("ft_taxProfile"); if (s) return JSON.parse(s); } catch {}
     return { maritalStatus: "single", customCutoff: "", payFrequency: "fortnightly", personalCredit: 2000, employeeCredit: 2000, earnedIncomeCredit: 0, homeCarerCredit: 0, singlePersonChildCarerCredit: 0, rentCredit: 0, otherCredits: 0, publicService: false, pensionRate: 6.5, ascScheme: "standard", afterTaxDeduction: 0 };
   });
   const [paydaysAdded, setPaydaysAdded] = useState(false);
-
-  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
-  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
-  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
 
   // Committed form
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", amount: "", currency: "EUR", startDate: today(), recurrence: "monthly", isFixed: true, note: "" });
@@ -921,9 +921,24 @@ export default function App() {
         if (d >= now && d <= end) events.push({ date: d, label: "Payday (PAYE)", amount: payroll.perNet, currency: "EUR", type: "income" });
       });
     }
-    transactions.filter(tx => tx.isCredit && !tx.isPAYE).forEach(tx => {
-      const d = new Date(tx.date + "T12:00:00");
-      if (d >= now && d <= end) events.push({ date: d, label: tx.description, amount: tx.amount, currency: tx.currency || "EUR", type: "income" });
+    // Detect recurring income from transaction history and project forward
+    const recurringIncome = detectRecurring(transactions.filter(tx => tx.isCredit && !tx.isPAYE));
+    recurringIncome.forEach(({ description, amount, recurrence, dates }) => {
+      if (!dates.length) return;
+      const lastDate = new Date(dates[dates.length - 1] + "T12:00:00");
+      // Project forward from last occurrence
+      let next = new Date(lastDate);
+      for (let i = 0; i < 20; i++) {
+        if (recurrence === "weekly") next = new Date(next.getTime() + 7 * 86400000);
+        else if (recurrence === "fortnightly") next = new Date(next.getTime() + 14 * 86400000);
+        else if (recurrence === "monthly") { next = new Date(next); next.setMonth(next.getMonth() + 1); }
+        else if (recurrence === "bimonthly") { next = new Date(next); next.setMonth(next.getMonth() + 2); }
+        else if (recurrence === "quarterly") { next = new Date(next); next.setMonth(next.getMonth() + 3); }
+        else if (recurrence === "yearly") { next = new Date(next); next.setFullYear(next.getFullYear() + 1); }
+        else break;
+        if (next > end) break;
+        if (next >= now) events.push({ date: new Date(next), label: description, amount, currency: "EUR", type: "income" });
+      }
     });
     committed.forEach(ce => {
       const dates = projectDates(ce.startDate, ce.recurrence, 60);
@@ -1595,11 +1610,9 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ PAYROLL ═══════════════════════════════════════════════════════════ */}
-        {tab === "payroll" && (
-          <PayrollTab salary={salary} setSalary={setSalary} firstPayday={firstPayday} setFirstPayday={setFirstPayday}
-            taxProfile={taxProfile} setTaxProfile={setTaxProfile} payroll={payroll}
-            setupPaydays={setupPaydays} paydaysAdded={paydaysAdded} />
+        {/* ══ BUDGETING ══════════════════════════════════════════════════════════ */}
+        {tab === "budgeting" && (
+          <BudgetingTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
         )}
 
         {/* ══ COMMITTED ═════════════════════════════════════════════════════════ */}
@@ -2929,180 +2942,208 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
   );
 }
 
+// ─── BUDGETING TAB ────────────────────────────────────────────────────────────
+function BudgetingTab({ transactions, overheadGroups, committed }) {
+  const [period, setPeriod] = useState("thisMonth");
+  const [budgets, setBudgets] = useState(() => {
+    try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; }
+  });
+  const [editingGroup, setEditingGroup] = useState(null);
 
-// ─── PAYROLL TAB ─────────────────────────────────────────────────────────────
-function PayrollTab({ salary, setSalary, firstPayday, setFirstPayday, taxProfile, setTaxProfile, payroll, setupPaydays, paydaysAdded }) {
-  const set = k => e => setTaxProfile(p => ({ ...p, [k]: e.target.value }));
-  const setN = k => v => setTaxProfile(p => ({ ...p, [k]: v }));
-  const tp = taxProfile;
-  const DEFAULT_CREDITS = { single: { personalCredit: 2000, employeeCredit: 2000 }, married1: { personalCredit: 4000, employeeCredit: 2000 }, married2: { personalCredit: 4000, employeeCredit: 4000 }, widowed: { personalCredit: 2190, employeeCredit: 2000 } };
-  const DEFAULT_CUTOFFS = { single: 44000, married1: 53000, married2: 88000, widowed: 44000 };
+  useEffect(() => {
+    try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {}
+  }, [budgets]);
+
+  // Date range for selected period
+  const { from, to, label: periodLabel } = useMemo(() => {
+    const now = new Date();
+    if (period === "thisMonth") {
+      const from = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      return { from, to, label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+    }
+    if (period === "lastMonth") {
+      const d = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+      const from = d.toISOString().split("T")[0];
+      const to = new Date(now.getFullYear(), now.getMonth(), 0).toISOString().split("T")[0];
+      return { from, to, label: d.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
+    }
+    if (period === "last3") {
+      const from = new Date(now.getFullYear(), now.getMonth() - 2, 1).toISOString().split("T")[0];
+      const to = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
+      return { from, to, label: "Last 3 Months" };
+    }
+    // thisYear
+    const from = new Date(now.getFullYear(), 0, 1).toISOString().split("T")[0];
+    const to = new Date(now.getFullYear(), 11, 31).toISOString().split("T")[0];
+    return { from, to, label: `${now.getFullYear()}` };
+  }, [period]);
+
+  // Actual spending by group
+  const actualByGroup = useMemo(() => {
+    const result = {};
+    transactions.forEach(tx => {
+      if (tx.isCredit || !tx.category || tx.date < from || tx.date > to) return;
+      // find group for this category
+      let group = "Other";
+      for (const [g, cats] of Object.entries(overheadGroups)) {
+        if (cats.includes(tx.category)) { group = g; break; }
+      }
+      result[group] = (result[group] || 0) + tx.amount;
+    });
+    return result;
+  }, [transactions, overheadGroups, from, to]);
+
+  // Committed monthly equivalent per group
+  const committedByGroup = useMemo(() => {
+    const result = {};
+    committed.filter(c => c.currency === "EUR").forEach(c => {
+      const r = RECURRENCES.find(r => r.v === c.recurrence);
+      const monthly = (parseFloat(c.amount) || 0) * (r?.ppy || 0) / 12;
+      const group = c.group || "Other";
+      result[group] = (result[group] || 0) + monthly;
+    });
+    return result;
+  }, [committed]);
+
+  const allGroups = useMemo(() => {
+    const gs = new Set([
+      ...Object.keys(actualByGroup),
+      ...Object.keys(budgets),
+      ...Object.keys(committedByGroup),
+    ]);
+    // Remove income/balance sheet groups
+    ["Income", "Assets", "Liabilities"].forEach(g => gs.delete(g));
+    return [...gs].sort();
+  }, [actualByGroup, budgets, committedByGroup]);
+
+  const totalBudget = Object.values(budgets).reduce((s, v) => s + (parseFloat(v) || 0), 0);
+  const totalActual = Object.values(actualByGroup).reduce((s, v) => s + v, 0);
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      {/* Basic */}
-      <div style={{ ...S.card, padding: 20 }}>
-        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>PAYE Payroll Setup</div>
-        <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Irish tax year 2026 — use your Tax Credit Certificate for exact figures.</div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(180px, 1fr))", gap: 12 }}>
-          <Input label="Annual Salary (EUR)" type="number" value={salary} onChange={e => setSalary(e.target.value)} placeholder="e.g. 55000" />
-          <Input label="First Payday" type="date" value={firstPayday} onChange={e => setFirstPayday(e.target.value)} />
-          <Select label="Pay Frequency" value={tp.payFrequency} onChange={set("payFrequency")}>
-            <option value="weekly">Weekly (52x)</option>
-            <option value="fortnightly">Fortnightly (26x)</option>
-            <option value="monthly">Monthly (12x)</option>
-          </Select>
-          <Select label="Marital Status" value={tp.maritalStatus} onChange={e => {
-            const ms = e.target.value;
-            const dc = DEFAULT_CREDITS[ms] || {};
-            setTaxProfile(p => ({ ...p, maritalStatus: ms, personalCredit: dc.personalCredit, employeeCredit: dc.employeeCredit, customCutoff: "" }));
-          }}>
-            <option value="single">Single</option>
-            <option value="married1">Married - 1 income</option>
-            <option value="married2">Married - 2 incomes</option>
-            <option value="widowed">Widowed</option>
-          </Select>
-          <div>
-            <Input label="Custom Rate Band Cutoff (EUR)" type="number" value={tp.customCutoff} onChange={set("customCutoff")} placeholder={`Default: EUR ${(DEFAULT_CUTOFFS[tp.maritalStatus] || 44000).toLocaleString()}`} />
-          </div>
-        </div>
-      </div>
 
-      {/* Credits */}
-      <div style={{ ...S.card, padding: 20 }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 14 }}>
-          <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>Tax Credits (EUR)</div>
-          <button onClick={() => {
-            const dc = DEFAULT_CREDITS[tp.maritalStatus] || {};
-            setTaxProfile(p => ({ ...p, ...dc, earnedIncomeCredit: 0, homeCarerCredit: 0, singlePersonChildCarerCredit: 0, rentCredit: 0, otherCredits: 0, customCutoff: "" }));
-          }} style={{ background: "none", border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, color: T.textMid, cursor: "pointer", fontFamily: "inherit" }}>
-            Reset defaults
-          </button>
+      {/* Header */}
+      <div style={{ ...S.card, padding: "16px 20px" }}>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
+          <div>
+            <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
+            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div>
+          </div>
+          <select value={period} onChange={e => setPeriod(e.target.value)}
+            style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
+            <option value="thisMonth">This Month</option>
+            <option value="lastMonth">Last Month</option>
+            <option value="last3">Last 3 Months</option>
+            <option value="thisYear">This Year</option>
+          </select>
         </div>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(170px, 1fr))", gap: 10 }}>
+
+        {/* Summary bar */}
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12, marginTop: 16 }}>
           {[
-            ["Personal Credit", "personalCredit", `Default: EUR ${(DEFAULT_CREDITS[tp.maritalStatus]?.personalCredit || 2000).toLocaleString()}`],
-            ["Employee (PAYE) Credit", "employeeCredit", "Max EUR 2,000"],
-            ["Earned Income Credit", "earnedIncomeCredit", "Self-employed"],
-            ["Home Carer Credit", "homeCarerCredit", "Max EUR 1,950"],
-            ["Single Person Child Carer", "singlePersonChildCarerCredit", "EUR 1,900 if applicable"],
-            ["Rent Tax Credit", "rentCredit", "Max EUR 1,000"],
-            ["Other Credits", "otherCredits", "Medical, tuition, etc."],
-          ].map(([label, key, hint]) => (
-            <div key={key}>
-              <Input label={label} type="number" value={tp[key] || 0} onChange={set(key)} placeholder="0" />
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>{hint}</div>
+            { label: "Total Budget", value: fmt(totalBudget), color: T.accent },
+            { label: "Total Spent", value: fmt(totalActual), color: totalActual > totalBudget && totalBudget > 0 ? T.red : T.text },
+            { label: "Remaining", value: fmt(Math.max(0, totalBudget - totalActual)), color: T.green },
+          ].map(({ label, value, color }) => (
+            <div key={label} style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 14px" }}>
+              <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{label}</div>
+              <div style={{ fontSize: 18, fontWeight: 700, color, marginTop: 2 }}>{value}</div>
             </div>
           ))}
         </div>
-        <div style={{ marginTop: 12, padding: "10px 14px", borderRadius: 8, background: T.surfaceHigh, display: "flex", justifyContent: "space-between", fontSize: 13 }}>
-          <span style={{ color: T.textMid }}>Total Annual Tax Credits</span>
-          <span style={{ color: T.green, fontWeight: 700 }}>{fmt([tp.personalCredit, tp.employeeCredit, tp.earnedIncomeCredit, tp.homeCarerCredit, tp.singlePersonChildCarerCredit, tp.rentCredit, tp.otherCredits].reduce((s, v) => s + (parseFloat(v) || 0), 0))}</span>
-        </div>
       </div>
 
-      {/* Public service */}
-      <div style={{ ...S.card, padding: 20, borderColor: tp.publicService ? T.purple + "60" : T.border }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: tp.publicService ? 14 : 0 }}>
-          <div>
-            <div className="hn" style={{ fontSize: 14, fontWeight: 700, color: tp.publicService ? T.purple : T.text }}>Public Service Employee</div>
-            <div style={{ fontSize: 12, color: T.textDim }}>Enables pension, ASC, and after-tax deductions</div>
-          </div>
-          <button onClick={() => setTaxProfile(p => ({ ...p, publicService: !p.publicService }))}
-            style={{ width: 44, height: 24, borderRadius: 12, border: "none", cursor: "pointer", background: tp.publicService ? T.purple : T.border, position: "relative", transition: "background 0.2s", flexShrink: 0 }}>
-            <span style={{ position: "absolute", top: 3, width: 18, height: 18, background: "#fff", borderRadius: 9, transition: "left 0.2s", left: tp.publicService ? 23 : 3 }} />
-          </button>
+      {/* Group rows */}
+      <div style={{ ...S.card, overflow: "hidden" }}>
+        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
+          {["Category Group", "Budget/Mo", "Committed", "Actual", "Status"].map(h => (
+            <div key={h} style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
+          ))}
         </div>
-        {tp.publicService && (
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 12 }}>
-            <div>
-              <Input label="Pension Contribution %" type="number" value={tp.pensionRate} onChange={set("pensionRate")} placeholder="6.5" />
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>% of gross — tax-relieved, no USC relief</div>
-            </div>
-            <Select label="ASC Pension Scheme" value={tp.ascScheme} onChange={set("ascScheme")}>
-              <option value="standard">Standard Accrual (most civil/public servants)</option>
-              <option value="fast">Fast Accrual (Gardai, Defence, Prison)</option>
-              <option value="single">Single Public Service Scheme (post-2013)</option>
-            </Select>
-            <div>
-              <Input label={`After-tax deduction (EUR per ${tp.payFrequency} pay)`} type="number" value={tp.afterTaxDeduction} onChange={set("afterTaxDeduction")} placeholder="e.g. 53" />
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>Union, VHI, cycle scheme — after tax</div>
-            </div>
+
+        {allGroups.length === 0 && (
+          <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>
+            Import transactions or add committed expenses to see budget data.
           </div>
         )}
+
+        {allGroups.map(group => {
+          const budget = parseFloat(budgets[group]) || 0;
+          const actual = actualByGroup[group] || 0;
+          const committed_ = committedByGroup[group] || 0;
+          const pct = budget > 0 ? Math.min(100, (actual / budget) * 100) : 0;
+          const over = budget > 0 && actual > budget;
+          const isEditing = editingGroup === group;
+
+          return (
+            <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
+              <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }}
+                onClick={() => setEditingGroup(isEditing ? null : group)}>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
+                <div style={{ fontSize: 13, color: budget > 0 ? T.accent : T.textDim }}>
+                  {budget > 0 ? fmt(budget) : <span style={{ fontSize: 11 }}>— set</span>}
+                </div>
+                <div style={{ fontSize: 13, color: committed_ > 0 ? T.text : T.textDim }}>
+                  {committed_ > 0 ? fmt(committed_) : "—"}
+                </div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: over ? T.red : T.text }}>{fmt(actual)}</div>
+                <div>
+                  {budget > 0 ? (
+                    <Badge color={over ? "red" : pct > 80 ? "accent" : "green"}>
+                      {over ? "Over" : Math.round(pct) + "%"}
+                    </Badge>
+                  ) : actual > 0 ? (
+                    <Badge color="dim">No budget</Badge>
+                  ) : null}
+                </div>
+              </div>
+
+              {/* Mini progress bar */}
+              {budget > 0 && (
+                <div style={{ height: 2, background: T.border, marginTop: -2 }}>
+                  <div style={{ height: "100%", width: pct + "%", background: over ? T.red : pct > 80 ? T.accent : T.green, transition: "width 0.4s" }} />
+                </div>
+              )}
+
+              {/* Inline budget editor */}
+              {isEditing && (
+                <div style={{ padding: "12px 20px", background: T.surfaceHigh, display: "flex", gap: 10, alignItems: "center" }}
+                  onClick={e => e.stopPropagation()}>
+                  <span style={{ fontSize: 12, color: T.textMid, minWidth: 120 }}>Monthly budget for <b style={{ color: T.text }}>{group}</b>:</span>
+                  <input
+                    type="number"
+                    placeholder="0.00"
+                    defaultValue={budgets[group] || ""}
+                    style={{ ...S.input, width: 120, fontSize: 13, padding: "6px 10px" }}
+                    onKeyDown={e => {
+                      if (e.key === "Enter") {
+                        const v = parseFloat(e.target.value) || 0;
+                        setBudgets(prev => v > 0 ? { ...prev, [group]: v } : Object.fromEntries(Object.entries(prev).filter(([k]) => k !== group)));
+                        setEditingGroup(null);
+                      }
+                      if (e.key === "Escape") setEditingGroup(null);
+                    }}
+                    autoFocus
+                  />
+                  <span style={{ fontSize: 11, color: T.textDim }}>Press Enter to save, Esc to cancel</span>
+                  {budgets[group] && (
+                    <button onClick={() => { setBudgets(prev => Object.fromEntries(Object.entries(prev).filter(([k]) => k !== group))); setEditingGroup(null); }}
+                      style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11 }}>
+                      Clear
+                    </button>
+                  )}
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* Results */}
-      {payroll && (
-        <>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10 }}>
-            {[
-              { l: "Annual Gross", v: fmt(payroll.annualGross), c: "text" },
-              { l: "Income Tax", v: `-${fmt(payroll.incomeTax)}`, c: "red" },
-              { l: "USC", v: `-${fmt(payroll.usc)}`, c: "accent" },
-              { l: "PRSI (4.2%)", v: `-${fmt(payroll.prsi)}`, c: "accent" },
-              ...(tp.publicService && payroll.pension > 0 ? [{ l: "Pension", v: `-${fmt(payroll.pension)}`, c: "purple" }] : []),
-              ...(tp.publicService && payroll.asc > 0 ? [{ l: "ASC", v: `-${fmt(payroll.asc)}`, c: "purple" }] : []),
-              { l: "Annual Take-Home", v: fmt(payroll.takeHome), c: "green" },
-              { l: "Monthly Net", v: fmt(payroll.monthlyNet), c: "text" },
-            ].map(({ l, v, c }) => <StatCard key={l} label={l} value={v} color={c} />)}
-          </div>
-
-          <div style={{ ...S.card, padding: 20, borderColor: T.accent + "40" }}>
-            <div className="hn" style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12, textTransform: "uppercase", letterSpacing: "0.06em" }}>
-              {tp.payFrequency.charAt(0).toUpperCase() + tp.payFrequency.slice(1)} Pay Breakdown
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 8 }}>
-              {[
-                { l: "Gross", v: fmt(payroll.perGross) },
-                { l: "Income Tax", v: `-${fmt(payroll.perTax)}`, c: T.red },
-                { l: "USC", v: `-${fmt(payroll.perUSC)}`, c: T.accent },
-                { l: "PRSI", v: `-${fmt(payroll.perPRSI)}`, c: T.accent },
-                ...(tp.publicService && payroll.perPension > 0 ? [{ l: "Pension", v: `-${fmt(payroll.perPension)}`, c: T.purple }] : []),
-                ...(tp.publicService && payroll.perASC > 0 ? [{ l: "ASC", v: `-${fmt(payroll.perASC)}`, c: T.purple }] : []),
-                ...(payroll.perAfterTax > 0 ? [{ l: "After-tax ded.", v: `-${fmt(payroll.perAfterTax)}`, c: T.textMid }] : []),
-                { l: "Net Pay", v: fmt(payroll.perNet), c: T.green },
-              ].map(({ l, v, c }) => (
-                <div key={l} style={{ padding: "10px 12px", borderRadius: 8, background: T.surfaceHigh, textAlign: "center" }}>
-                  <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 4 }}>{l}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: c || T.text }}>{v}</div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* USC detail */}
-          <div style={{ ...S.card, padding: 16 }}>
-            <div className="hn" style={{ fontSize: 12, fontWeight: 700, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>USC Tier Breakdown 2026</div>
-            <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-              {[
-                ["0.5% on first EUR 12,012", Math.min(payroll.annualGross, 12012) * 0.005],
-                ...(payroll.annualGross > 12012 ? [["2% on EUR 12,012 to EUR 28,700", Math.min(payroll.annualGross - 12012, 16688) * 0.02]] : []),
-                ...(payroll.annualGross > 28700 ? [["3% on EUR 28,700 to EUR 70,044", Math.min(payroll.annualGross - 28700, 41344) * 0.03]] : []),
-                ...(payroll.annualGross > 70044 ? [["8% above EUR 70,044", (payroll.annualGross - 70044) * 0.08]] : []),
-              ].map(([label, val]) => (
-                <div key={label} style={{ display: "flex", justifyContent: "space-between", fontSize: 12 }}>
-                  <span style={{ color: T.textMid }}>{label}</span>
-                  <span style={{ color: T.accent, fontWeight: 600 }}>{fmt(val)}</span>
-                </div>
-              ))}
-              <Divider />
-              <div style={{ display: "flex", justifyContent: "space-between", fontSize: 13, fontWeight: 700 }}>
-                <span style={{ color: T.text }}>Total USC</span>
-                <span style={{ color: T.accent }}>{fmt(payroll.usc)}</span>
-              </div>
-              <div style={{ fontSize: 11, color: T.textDim }}>USC on gross income (pension / ASC do not reduce USC base). PRSI 4.2%, rising to 4.35% from 1 Oct 2026.</div>
-            </div>
-          </div>
-
-          {firstPayday && (
-            <div style={{ display: "flex", gap: 10, alignItems: "center", flexWrap: "wrap" }}>
-              <Btn onClick={setupPaydays}><RefreshCw size={13} /> Auto-schedule paydays (6 months)</Btn>
-              {paydaysAdded && <Badge color="green">Paydays added to transactions</Badge>}
-            </div>
-          )}
-        </>
-      )}
+      {/* Tip */}
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
+        💡 Budgets are monthly targets. Click any row to set or edit. Committed expenses show your scheduled fixed costs for reference.
+      </div>
     </div>
   );
 }
