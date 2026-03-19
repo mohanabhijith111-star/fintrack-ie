@@ -6,7 +6,14 @@
     <meta name="theme-color" content="#0E0E10" />
     <meta name="description" content="FinTrack IE - Irish personal finance tracker" />
     <title>FinTrack IE</title>
-  </head>
+    <link rel="manifest" href="/manifest.json">
+  <meta name="theme-color" content="#C8965A">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="FinTrack">
+  <link rel="apple-touch-icon" href="/icon-192.png">
+  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}</script>
+</head>
   <body>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
