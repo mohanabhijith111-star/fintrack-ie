@@ -807,6 +807,167 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
 }
 
 
+// ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
+const GDRIVE_CLIENT_ID = '746587088287-p2rdrcg501p2gv1erfdttpvukihcur63.apps.googleusercontent.com';
+const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
+const GDRIVE_FILE_NAME = 'fintrack-ie-data.json';
+const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rules','ft_customOverheads','ft_salary','ft_firstPayday','ft_taxProfile','ft_budgets'];
+
+function loadGoogleIdentity() {
+  return new Promise((resolve, reject) => {
+    if (window.google?.accounts?.oauth2) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = 'https://accounts.google.com/gsi/client';
+    s.onload = resolve;
+    s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+async function getAccessToken() {
+  await loadGoogleIdentity();
+  return new Promise((resolve, reject) => {
+    const client = window.google.accounts.oauth2.initTokenClient({
+      client_id: GDRIVE_CLIENT_ID,
+      scope: GDRIVE_SCOPES,
+      callback: (resp) => {
+        if (resp.error) reject(new Error(resp.error));
+        else resolve(resp.access_token);
+      },
+    });
+    client.requestAccessToken({ prompt: '' });
+  });
+}
+
+async function findOrCreateFile(token) {
+  // Search in appDataFolder
+  const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  const data = await r.json();
+  if (data.files && data.files.length > 0) return data.files[0].id;
+  // Create new file
+  const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' }));
+  form.append('file', new Blob(['{}'], { type: 'application/json' }));
+  const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', {
+    method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form
+  });
+  const created = await cr.json();
+  return created.id;
+}
+
+async function saveToGDrive(token) {
+  const fileId = await findOrCreateFile(token);
+  const data = {};
+  LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} });
+  data['_savedAt'] = new Date().toISOString();
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' }));
+  form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' }));
+  await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, {
+    method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form
+  });
+  return data['_savedAt'];
+}
+
+async function loadFromGDrive(token) {
+  const fileId = await findOrCreateFile(token);
+  const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
+    headers: { Authorization: `Bearer ${token}` }
+  });
+  if (!r.ok) return null;
+  const data = await r.json();
+  if (!data || Object.keys(data).length <= 1) return null; // only _savedAt or empty
+  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
+  return data['_savedAt'] || 'unknown time';
+}
+
+function DriveSync() {
+  const [status, setStatus] = useState('idle'); // idle | syncing | saved | loaded | error
+  const [lastSync, setLastSync] = useState(() => {
+    try { return localStorage.getItem('ft_lastDriveSync') || null; } catch { return null; }
+  });
+  const [token, setToken] = useState(null);
+  const [msg, setMsg] = useState('');
+
+  const signIn = async () => {
+    try {
+      setStatus('syncing');
+      setMsg('Signing in...');
+      const t = await getAccessToken();
+      setToken(t);
+      setMsg('Loading from Drive...');
+      const savedAt = await loadFromGDrive(t);
+      if (savedAt) {
+        const ts = new Date(savedAt).toLocaleString('en-IE');
+        setLastSync(ts);
+        localStorage.setItem('ft_lastDriveSync', ts);
+        setStatus('loaded');
+        setMsg('Data loaded! Refreshing...');
+        setTimeout(() => window.location.reload(), 1000);
+      } else {
+        setStatus('saved');
+        setMsg('No existing data found — will save on next change.');
+      }
+    } catch (e) {
+      setStatus('error');
+      setMsg('Sign-in failed. Try again.');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    }
+  };
+
+  const save = async () => {
+    try {
+      setStatus('syncing');
+      setMsg('Saving to Drive...');
+      const t = token || await getAccessToken();
+      if (!token) setToken(t);
+      const savedAt = await saveToGDrive(t);
+      const ts = new Date(savedAt).toLocaleString('en-IE');
+      setLastSync(ts);
+      localStorage.setItem('ft_lastDriveSync', ts);
+      setStatus('saved');
+      setMsg('Saved to your Google Drive!');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    } catch (e) {
+      setStatus('error');
+      setMsg('Save failed. Try again.');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+    }
+  };
+
+  const colors = { idle: T.textDim, syncing: T.accent, saved: T.green, loaded: T.green, error: T.red };
+  const c = colors[status] || T.textDim;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', gap: 8, flexShrink: 0 }}>
+      {msg && <span style={{ fontSize: 11, color: c }}>{msg}</span>}
+      {lastSync && !msg && <span style={{ fontSize: 10, color: T.textDim }}>Synced {lastSync}</span>}
+      {!token ? (
+        <button onClick={signIn} disabled={status === 'syncing'}
+          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          Sync Drive
+        </button>
+      ) : (
+        <button onClick={save} disabled={status === 'syncing'}
+          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5">
+            <polyline points="20 6 9 17 4 12"/>
+          </svg>
+          Save
+        </button>
+      )}
+    </div>
+  );
+}
+
+
 const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
@@ -1263,7 +1424,8 @@ export default function App() {
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 2, paddingBottom: 10, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, paddingBottom: 10 }}>
+            <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", flex: 1 }}>
             {TABS.map(t => {
               const Icon = t.icon;
               const active = tab === t.id;
@@ -1278,6 +1440,8 @@ export default function App() {
                 </button>
               );
             })}
+            </div>
+            <DriveSync />
           </div>
         </div>
       </div>
