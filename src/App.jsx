@@ -1585,6 +1585,8 @@ export default function App() {
                   <TxRow key={tx.id} tx={tx}
                     overheadGroups={OVERHEAD_GROUPS}
                     debts={debts}
+                    committed={committed}
+                    onCommit={expense => setCommitted(prev => [...prev, expense])}
                     onCategory={cat => updateTxCategory(tx.id, cat)}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
@@ -2603,11 +2605,15 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed }) {
+  const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
   const [allocating, setAllocating] = useState(false);
   const [selectedDebt, setSelectedDebt] = useState("");
+  const [committing, setCommitting] = useState(false);
+  const [commitRec, setCommitRec] = useState("monthly");
+  const [commitAmt, setCommitAmt] = useState(tx.amount ? parseFloat(tx.amount).toFixed(2) : "");
 
   function applyAllocation() {
     if (!selectedDebt) return;
@@ -2653,6 +2659,14 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
             {tx.debtAllocated ? "Reallocate" : "→ Debt"}
           </button>
         )}
+        {/* Commit expense button — only on outgoing transactions */}
+        {!tx.isCredit && onCommit && !committing && (
+          <button onClick={() => setCommitting(true)}
+            title="Commit as a recurring expense"
+            style={{ background: alreadyCommitted ? T.accentDim+"30" : T.surfaceHigh, color: alreadyCommitted ? T.accent : T.textDim, border: `1px solid ${alreadyCommitted ? T.accent+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
+            {alreadyCommitted ? "★ Committed" : "★ Commit"}
+          </button>
+        )}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
@@ -2689,6 +2703,57 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
               </>
             );
           })()}
+        </div>
+      )}
+      {/* Commit expense inline form */}
+      {committing && (
+        <div style={{ marginTop: 6, background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px" }} onClick={e => e.stopPropagation()}>
+          <div style={{ fontSize: 12, fontWeight: 600, color: T.accent, marginBottom: 8 }}>Commit as recurring expense</div>
+          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
+            <div style={{ flex: 1, minWidth: 100 }}>
+              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Amount (€)</div>
+              <input type="number" step="0.01" value={commitAmt} onChange={e => setCommitAmt(e.target.value)}
+                style={{ ...S.input, fontSize: 12, padding: "5px 8px", width: "100%" }} />
+            </div>
+            <div style={{ flex: 1, minWidth: 120 }}>
+              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Frequency</div>
+              <select value={commitRec} onChange={e => setCommitRec(e.target.value)}
+                style={{ ...S.input, fontSize: 12, padding: "5px 8px", width: "100%" }}>
+                {RECURRENCES.filter(r => r.v !== "one-time").map(r => (
+                  <option key={r.v} value={r.v}>{r.l}</option>
+                ))}
+              </select>
+            </div>
+            <div style={{ display: "flex", gap: 4, alignSelf: "flex-end", paddingBottom: 1 }}>
+              <Btn style={{ fontSize: 11, padding: "5px 10px" }} onClick={() => {
+                const rec = RECURRENCES.find(r => r.v === commitRec);
+                const monthly = (parseFloat(commitAmt) || 0) * (rec?.ppy || 0) / 12;
+                onCommit({
+                  id: Date.now().toString(),
+                  typeId: "custom",
+                  name: tx.description,
+                  group: tx.category ? ((() => { for (const [g, cats] of Object.entries(BUILTIN_OVERHEAD_GROUPS)) { if (cats.includes(tx.category)) return g; } return "Other"; })()) : "Other",
+                  category: tx.category || "",
+                  amount: parseFloat(commitAmt).toFixed(2),
+                  currency: tx.currency || "EUR",
+                  recurrence: commitRec,
+                  startDate: tx.date,
+                  isFixed: true,
+                  note: `Created from transaction on ${tx.date}`,
+                });
+                setCommitting(false);
+              }}>
+                <Check size={11} /> Add ({commitRec === "monthly" ? fmt(parseFloat(commitAmt)) + "/mo" : RECURRENCES.find(r=>r.v===commitRec)?.l})
+              </Btn>
+              <button onClick={() => setCommitting(false)}
+                style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4 }}>
+                <X size={12} />
+              </button>
+            </div>
+          </div>
+          <div style={{ fontSize: 10, color: T.textDim, marginTop: 6 }}>
+            {(() => { const rec = RECURRENCES.find(r => r.v === commitRec); const mo = (parseFloat(commitAmt)||0)*(rec?.ppy||0)/12; return mo > 0 ? `≈ ${fmt(mo)}/month · ${fmt((parseFloat(commitAmt)||0)*(rec?.ppy||0))}/year` : ""; })()}
+          </div>
         </div>
       )}
     </div>
