@@ -1,7 +1,7 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 
-// --- DESIGN TOKENS v3 -----------------------------------------------------------
+// --- DESIGN TOKENS -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
 const T = {
   bg:"#0A0C10",sidebar:"#0F1117",surface:"#161820",surfaceHigh:"#1E2028",
@@ -733,7 +733,7 @@ function StatCard({ label, value, sub, color = "text", trend, onClick, detail })
         {clickable && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 10, color: T.textDim }}>{detail && (open ? "-" : "-")}</div>}
       </div>
       {open && detail && (
-        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: `1px solid ${T.border}`, gridColumn: "1 / -1" }}>
+        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: "1px solid #252830", gridColumn: "1 / -1" }}>
           {detail}
         </div>
       )}
@@ -742,7 +742,7 @@ function StatCard({ label, value, sub, color = "text", trend, onClick, detail })
 }
 
 function Divider() {
-  return <div style={{ borderTop: `1px solid ${T.border}`, margin: "16px 0" }} />;
+  return <div style={{ borderTop: "1px solid #252830", margin: "16px 0" }} />;
 }
 
 // --- CATEGORY COMBO ----------------------------------------------------------
@@ -1236,7 +1236,7 @@ export default function App() {
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
       html,body,#root{height:100%;}
-      body{background:#0A0C10;color:#EEEDF0;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+      body{background:#0A0C10;color:#EEEDF0;font-family:Inter,-apple-system,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
       .hn{font-family:Syne,sans-serif;letter-spacing:-0.02em;}
       .mono{font-family:JetBrains Mono,monospace;font-size:0.93em;}
       .app-shell{display:flex;height:100vh;overflow:hidden;}
@@ -1247,21 +1247,11 @@ export default function App() {
       .nav-item.active{background:rgba(240,160,60,0.09);color:#F0A03C;}
       .nav-label{font-size:9px;color:#454760;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;padding:12px 20px 4px;}
       .row-hover:hover{background:#23252F !important;transition:background 0.12s;}
-      ::-webkit-scrollbar{width:4px;height:4px;}
-      ::-webkit-scrollbar-track{background:transparent;}
-      ::-webkit-scrollbar-thumb{background:#252830;border-radius:4px;}
+      ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#252830;border-radius:4px;}
       input:focus,select:focus{outline:none;border-color:#F0A03C !important;box-shadow:0 0 0 3px rgba(240,160,60,0.09);}
       @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
       .fade-in{animation:fadeIn 0.2s ease;}
-      @media(max-width:768px){
-        .sidebar{display:none;}
-        .mobile-nav{display:flex !important;}
-        .app-shell{flex-direction:column;}
-        .main-content{height:calc(100vh - 56px);overflow-y:auto;}
-        .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
-        .two-col{grid-template-columns:1fr !important;}
-        .hide-mobile{display:none !important;}
-      }
+      @media(max-width:768px){.sidebar{display:none;}.mobile-nav{display:flex !important;}.app-shell{flex-direction:column;}.main-content{height:calc(100vh - 56px);overflow-y:auto;}.stat-grid{grid-template-columns:repeat(2,1fr) !important;}.two-col{grid-template-columns:1fr !important;}.hide-mobile{display:none !important;}}
       @media(min-width:769px){.mobile-nav{display:none !important;}}
     `}</style>
 
@@ -1272,10 +1262,7 @@ export default function App() {
       <div className="app-shell">
         <aside className="sidebar">
           <div style={{padding:"18px 16px 14px",borderBottom:"1px solid #252830"}}>
-            <div className="hn" style={{fontSize:20,fontWeight:800,color:"#EEEDF0"}}>
-              Fin<span style={{color:"#F0A03C"}}>Track</span>
-              <span style={{color:"#454760",fontWeight:600,fontSize:11,marginLeft:4}}>IE</span>
-            </div>
+            <div className="hn" style={{fontSize:20,fontWeight:800,color:"#EEEDF0"}}>Fin<span style={{color:"#F0A03C"}}>Track</span><span style={{color:"#454760",fontWeight:600,fontSize:11,marginLeft:4}}>IE</span></div>
             {nextPayday && payroll && (
               <div style={{marginTop:10,padding:"8px 10px",background:"rgba(240,160,60,0.09)",borderRadius:8,border:"1px solid rgba(240,160,60,0.2)"}}>
                 <div style={{fontSize:9,color:"#F0A03C",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600}}>Next Payday</div>
@@ -1286,48 +1273,26 @@ export default function App() {
           </div>
           <nav style={{padding:"8px 0",flex:1}}>
             <div className="nav-label">Main</div>
-            {[{id:"dashboard",label:"Overview",icon:BarChart2},{id:"transactions",label:"Transactions",icon:Layers},{id:"accounts",label:"Accounts",icon:CreditCard}].map(t => {
-              const Icon = t.icon;
-              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}>
-                <Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span>
-                {t.id==="transactions"&&importQueue.length>0&&<span style={{marginLeft:"auto",background:"#E05C5C",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{importQueue.length}</span>}
-              </button>;
-            })}
+            {[{id:"dashboard",label:"Overview",icon:BarChart2},{id:"transactions",label:"Transactions",icon:Layers}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span>{t.id==="transactions"&&importQueue.length>0&&<span style={{marginLeft:"auto",background:"#E05C5C",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{importQueue.length}</span>}</button>);})}
             <div className="nav-label" style={{marginTop:8}}>Planning</div>
-            {[{id:"budgeting",label:"Budgeting",icon:Target},{id:"committed",label:"Committed",icon:Calendar},{id:"goals",label:"Goals",icon:Target}].map(t => {
-              const Icon = t.icon;
-              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
-            })}
+            {[{id:"budgeting",label:"Budgeting",icon:Target},{id:"committed",label:"Committed",icon:Calendar}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
             <div className="nav-label" style={{marginTop:8}}>Insights</div>
-            {[{id:"analytics",label:"Analytics",icon:TrendingDown},{id:"timeline",label:"Timeline",icon:Clock}].map(t => {
-              const Icon = t.icon;
-              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
-            })}
+            {[{id:"analytics",label:"Analytics",icon:TrendingDown},{id:"timeline",label:"Timeline",icon:Clock}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
             <div className="nav-label" style={{marginTop:8}}>Debt</div>
-            {[{id:"debt",label:"Debt Tracker",icon:CreditCard},{id:"planner",label:"Planner",icon:TrendingUp}].map(t => {
-              const Icon = t.icon;
-              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
-            })}
+            {[{id:"debt",label:"Debt Tracker",icon:CreditCard},{id:"planner",label:"Planner",icon:TrendingUp}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
           </nav>
           <div style={{padding:"10px 8px",borderTop:"1px solid #252830"}}>
             <DriveSync/>
-            <button className={"nav-item"+(tab==="settings"?" active":"")} onClick={()=>setTab("settings")} style={{marginTop:4}}>
-              <Settings size={14} style={{flexShrink:0,opacity:0.8}}/><span>Settings</span>
-            </button>
+            <button className={"nav-item"+(tab==="settings"?" active":"")} onClick={()=>setTab("settings")} style={{marginTop:4}}><Settings size={14} style={{flexShrink:0,opacity:0.8}}/><span>Settings</span></button>
           </div>
         </aside>
         <div className="mobile-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:"#0F1117",borderTop:"1px solid #252830",padding:"4px 0",justifyContent:"space-around",alignItems:"center"}}>
-          {[{id:"dashboard",icon:BarChart2,label:"Home"},{id:"transactions",icon:Layers,label:"Txns"},{id:"analytics",icon:TrendingDown,label:"Stats"},{id:"committed",icon:Calendar,label:"Bills"},{id:"debt",icon:CreditCard,label:"Debt"},{id:"settings",icon:Settings,label:"More"}].map(t=>{
-            const Icon=t.icon;const active=tab===t.id;
-            return <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}>
-              <Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span>
-            </button>;
-          })}
+          {[{id:"dashboard",icon:BarChart2,label:"Home"},{id:"transactions",icon:Layers,label:"Txns"},{id:"analytics",icon:TrendingDown,label:"Stats"},{id:"committed",icon:Calendar,label:"Bills"},{id:"debt",icon:CreditCard,label:"Debt"},{id:"settings",icon:Settings,label:"More"}].map(t=>{const Icon=t.icon;const active=tab===t.id;return(<button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}><Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span></button>);})}
         </div>
         <main className="main-content" style={{paddingBottom:70}}>
           <div style={{padding:"16px 24px 12px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
             <div>
-              <h1 className="hn" style={{fontSize:22,fontWeight:800,color:"#EEEDF0"}}>{TABS.find(t=>t.id===tab)?.label||"Overview"}</h1>
+              <h1 className="hn" style={{fontSize:22,fontWeight:800,color:"#EEEDF0"}}>{TABS.find(t=>t.id===tab)?TABS.find(t=>t.id===tab).label:"Overview"}</h1>
               <div style={{fontSize:11,color:"#454760",marginTop:2}}>{new Date().toLocaleDateString("en-IE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
             </div>
             <div className="hide-mobile"><DriveSync/></div>
@@ -1340,21 +1305,21 @@ export default function App() {
             {/* KPI row - 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
-                detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
+                detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
               <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red"
-                detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
+                detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
               />
               <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
-                detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
+                detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
               />
               <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent"
-                detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
+                detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
               />
               {payroll && <StatCard label="Fortnightly Net" value={fmt(payroll.perNet)} color="text" sub={fmt(payroll.takeHome) + " /yr"} />}
               <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
                 onClick={() => setTab("transactions")}
-                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more - click to view all</div>}</div>}
+                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more - click to view all</div>}</div>}
               />
             </div>
 
@@ -1599,7 +1564,7 @@ export default function App() {
             {/* Transaction ledger */}
             <div style={{ ...S.card, overflow: "hidden" }}>
               {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #252830", fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", gap: 8 }}>
                 <div style={{ width: 80, flexShrink: 0 }}>Date</div>
                 <div style={{ flex: 1 }}>Description</div>
                 <div style={{ flexShrink: 0 }}>Amount</div>
@@ -1645,7 +1610,7 @@ export default function App() {
                 ))}
               </div>
               {filteredTx.length > 0 && (
-                <div style={{ padding: "10px 16px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim }}>
+                <div style={{ padding: "10px 16px", borderTop: "1px solid #252830", display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim }}>
                   <span>{filteredTx.length} transactions</span>
                   <span>In: <b style={{ color: T.green }}>{fmt(filteredTx.filter(t => t.isCredit).reduce((s, t) => s + t.amount, 0))}</b> &nbsp; Out: <b style={{ color: T.red }}>{fmt(filteredTx.filter(t => !t.isCredit).reduce((s, t) => s + t.amount, 0))}</b></span>
                 </div>
@@ -1755,7 +1720,7 @@ export default function App() {
                 const next = nextDates.find(d => d.effective >= today());
                 const isOpen = showProjectId === ce.id;
                 return (
-                  <div key={ce.id} style={{ borderBottom: `1px solid ${T.border}` }}>
+                  <div key={ce.id} style={{ borderBottom: "1px solid #252830" }}>
                     <div className="row-hover" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1812,7 +1777,7 @@ export default function App() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(ce.amount, ce.currency)}</span>
                         <button onClick={() => setShowProjectId(isOpen ? null : ce.id)}
-                          style={{ background: isOpen ? T.blueDim : T.surfaceHigh, color: isOpen ? T.blue : T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                          style={{ background: isOpen ? T.blueDim : T.surfaceHigh, color: isOpen ? T.blue : T.textMid, border: "1px solid #252830", borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
                           {isOpen ? "Hide" : "Project"}
                         </button>
                         <button onClick={() => setCommitted(prev => prev.filter(x => x.id !== ce.id))}
@@ -1822,7 +1787,7 @@ export default function App() {
                       </div>
                     </div>
                     {isOpen && (
-                      <div style={{ padding: "12px 16px", background: T.bg, borderTop: `1px solid ${T.border}` }}>
+                      <div style={{ padding: "12px 16px", background: T.bg, borderTop: "1px solid #252830" }}>
                         <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8 }}>12-month projection &middot; * = moved past weekend or Irish bank holiday</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6 }}>
                           {projectDates(ce.startDate, ce.recurrence, 12).map((pd, i) => {
@@ -1992,7 +1957,7 @@ export default function App() {
         {/* -- TIMELINE ---------------------------------------------------------- */}
         {tab === "timeline" && (
           <div style={{ ...S.card, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ padding: "16px 20px", borderBottom: "1px solid #252830" }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>60-Day Cash Flow</div>
               <div style={{ fontSize: 12, color: T.textDim }}>All income, committed costs and debt payments in the next 60 days, with Irish banking day adjustments applied.</div>
             </div>
@@ -2004,7 +1969,7 @@ export default function App() {
                 const now = new Date(); now.setHours(0, 0, 0, 0);
                 const daysAway = Math.ceil((ev.date - now) / 86400000);
                 return (
-                  <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
+                  <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: "1px solid #252830" }}>
                     <div style={{ width: 72, flexShrink: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: T.textMid }}>{ev.date.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</div>
                       <div style={{ fontSize: 10, color: T.textDim }}>{daysAway === 0 ? "Today" : "in " + daysAway + "d"}</div>
@@ -2133,8 +2098,6 @@ export default function App() {
         />
       )}
     </div>
-  );
-}
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
@@ -2246,7 +2209,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
       </div>
 
       {editing && (
-        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
+        <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <div>
@@ -2426,7 +2389,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               Next payment: {dateStr(form.dueDate)}
               {suggestedDueDate && suggestedDueDate !== form.dueDate && (
                 <button onClick={useSuggestedDate}
-                  style={{ marginLeft: 8, background: "none", border: `1px solid ${T.green}50`, borderRadius: 4, padding: "1px 6px", fontSize: 10, color: T.green, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ marginLeft: 8, background: "none", border: "1px solid rgba(61,184,122,0.31)", borderRadius: 4, padding: "1px 6px", fontSize: 10, color: T.green, cursor: "pointer", fontFamily: "inherit" }}>
                   Better date: {dateStr(suggestedDueDate)}
                 </button>
               )}
@@ -2451,7 +2414,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
       {/* Edit form */}
       {editing && (
-        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
+        <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
@@ -2483,7 +2446,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
                 style={{ ...S.input, marginBottom: 4 }} />
               {suggestedTerm && (
                 <button onClick={() => setForm(f => ({ ...f, termMonths: suggestedTerm.toString() }))}
-                  style={{ background: T.accentDim+"40", color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                  style={{ background: T.accentDim+"40", color: T.accent, border: "1px solid rgba(240,160,60,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
                   Calculate from payment: {suggestedTerm} months ({Math.round(suggestedTerm/12 * 10)/10} yrs)
                 </button>
               )}
@@ -2503,7 +2466,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               </div>
               {suggestedDueDate && (
                 <button onClick={useSuggestedDate}
-                  style={{ marginTop: 4, background: T.greenDim, color: T.green, border: `1px solid ${T.green}40`, borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                  style={{ marginTop: 4, background: T.greenDim, color: T.green, border: "1px solid rgba(61,184,122,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
                   Use cash-flow optimal: {dateStr(suggestedDueDate)}
                 </button>
               )}
@@ -2554,7 +2517,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Linked asset panel */}
         {linkedAsset && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}30` }}>
+          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.19)" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.green, marginBottom: 4 }}>Linked Asset: {linkedAsset.name}</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
               <div>
@@ -2577,7 +2540,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Last payment confirmation with principal/interest split */}
         {lastPayment && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, fontSize: 11 }}>
+          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", fontSize: 11 }}>
             <div style={{ fontWeight: 600, color: T.green, marginBottom: 4 }}>
               Payment of {fmt(lastPayment.totalPayment, debt.currency)} applied on {dateStr(lastPayment.date)}
             </div>
@@ -2618,7 +2581,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Suggested due date (when no date set) */}
         {!form.dueDate && suggestedDueDate && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: T.green }}>Cash-flow optimal payment date</div>
               <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses - most headroom on {dateStr(suggestedDueDate)}.</div>
@@ -2634,7 +2597,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
         <div style={{ marginTop: 10 }}>
           {!showPayment ? (
             <button onClick={() => { setShowPayment(true); setEditing(false); }}
-              style={{ background: T.surfaceHigh, color: T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+              style={{ background: T.surfaceHigh, color: T.textMid, border: "1px solid #252830", borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
               + Record Manual Payment
             </button>
           ) : (
@@ -2686,7 +2649,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
   }
 
   return (
-    <div className="row-hover" style={{ borderBottom: `1px solid ${T.border}`, padding: "10px 14px" }}>
+    <div className="row-hover" style={{ borderBottom: "1px solid #252830", padding: "10px 14px" }}>
       {/* Line 1: date - description - nature badge - amount */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0, width: 80 }}>{dateStr(tx.date)}</span>
@@ -3010,7 +2973,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
       ) : (!dirty && rule.keywords && rule.keywords.filter(k => k).length > 0 && (
         <div style={{ padding: "4px 12px 8px", fontSize: 11, color: T.textDim }}>
           Created {rule.created} &middot; {rule.keywords.filter(k => k).map(k => (
-            <span key={k} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
+            <span key={k} style={{ background: T.bg, border: "1px solid #252830", borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
           ))}
         </div>
       ))}
@@ -3525,8 +3488,8 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                         {m.net !== 0 && (
                           <div style={{ position: 'absolute', top: ((1 - Math.max(incPct, expPct) / 100) * 120) + 'px', left: 0, right: 0, height: 1, background: m.net >= 0 ? T.green + '40' : T.red + '40', borderTop: `1px dashed ${m.net >= 0 ? T.green : T.red}40` }} />
                         )}
-                        <div style={{ flex: 1, background: T.green + '70', borderRadius: '3px 3px 0 0', height: incPct + '%', minHeight: m.income > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.green}` : 'none' }} />
-                        <div style={{ flex: 1, background: m.expenses > m.income ? T.red + '80' : T.red + '50', borderRadius: '3px 3px 0 0', height: expPct + '%', minHeight: m.expenses > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.red}` : 'none' }} />
+                        <div style={{ flex: 1, background: T.green + '70', borderRadius: '3px 3px 0 0', height: incPct + '%', minHeight: m.income > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? "1px solid #3DB87A" : 'none' }} />
+                        <div style={{ flex: 1, background: m.expenses > m.income ? T.red + '80' : T.red + '50', borderRadius: '3px 3px 0 0', height: expPct + '%', minHeight: m.expenses > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? "1px solid #E05C5C" : 'none' }} />
                       </div>
                       <div style={{ fontSize: 9, color: isSel ? T.accent : T.textDim, textAlign: 'center', whiteSpace: 'nowrap', fontWeight: isSel ? 700 : 400 }}>{m.shortLabel}</div>
                       <div style={{ fontSize: 9, color: m.net >= 0 ? T.green : T.red, textAlign: 'center', fontWeight: 600 }}>{m.net >= 0 ? '+' : ''}{fmt(m.net)}</div>
@@ -3589,7 +3552,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
 
           {/* Month comparison table */}
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Month-by-Month</div>
             </div>
             <div style={{ overflowX: 'auto' }}>
@@ -3604,7 +3567,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                 <tbody>
                   {months.map(m => (
                     <tr key={m.key} onClick={() => setSelectedMonth(selectedMonth === m.key ? null : m.key)}
-                      style={{ borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: selectedMonth === m.key ? T.accent + '10' : 'transparent' }}>
+                      style={{ borderBottom: "1px solid #252830", cursor: 'pointer', background: selectedMonth === m.key ? T.accent + '10' : 'transparent' }}>
                       <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
                       <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
                       <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
@@ -3624,7 +3587,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
       {view === 'categories' && (
         <>
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>All Categories - Total Spend</div>
               <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Click any category to drill down</div>
             </div>
@@ -3634,7 +3597,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               return (
                 <div key={cat}>
                   <div className="row-hover" onClick={() => setSelectedCat(isSel ? null : cat)}
-                    style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: isSel ? T.accent + '08' : 'transparent' }}>
+                    style={{ padding: '12px 20px', borderBottom: "1px solid #252830", cursor: 'pointer', background: isSel ? T.accent + '08' : 'transparent' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <div>
                         <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{cat}</span>
@@ -3650,10 +3613,10 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                     </div>
                   </div>
                   {isSel && (
-                    <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
+                    <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: "1px solid #252830" }}>
                       <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8, fontWeight: 600 }}>RECENT TRANSACTIONS IN {cat.toUpperCase()}</div>
                       {txs.sort((a, b) => b.date?.localeCompare(a.date)).slice(0, 8).map(tx => (
-                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${T.border}` }}>
+                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: "1px solid #252830" }}>
                           <div>
                             <div style={{ fontSize: 12, color: T.text }}>{tx.description}</div>
                             <div style={{ fontSize: 10, color: T.textDim }}>{tx.date}</div>
@@ -3689,7 +3652,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
       {/* -- MERCHANTS -- */}
       {view === 'merchants' && (
         <div style={{ ...S.card, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+          <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
             <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Top Merchants by Spend</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -3703,7 +3666,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               </thead>
               <tbody>
                 {topMerchants.map(({ name, total, count, category }, i) => (
-                  <tr key={name} style={{ borderBottom: `1px solid ${T.border}` }}>
+                  <tr key={name} style={{ borderBottom: "1px solid #252830" }}>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textDim, width: 30 }}>{i + 1}</td>
                     <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</td>
                     <td style={{ padding: '9px 12px', color: T.textDim }}>{category || <span style={{ color: T.accent, fontSize: 11 }}>uncategorised</span>}</td>
@@ -3742,11 +3705,11 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
             const allCats = new Set([...Object.keys(mA.byCategory), ...Object.keys(mB.byCategory)]);
             return (
               <div style={{ ...S.card, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ padding: '12px 20px', borderBottom: "1px solid #252830" }}>
                   <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>{mA.label} vs {mB.label}</div>
                 </div>
                 {/* Totals */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: `1px solid ${T.border}` }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: "1px solid #252830" }}>
                   {[
                     { l: 'Metric', vA: mA.label, vB: mB.label, header: true },
                     { l: 'Income', vA: fmt(mA.income), vB: fmt(mB.income), dif: mB.income - mA.income, isGoodUp: true },
@@ -3755,9 +3718,9 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                     { l: 'Savings %', vA: mA.savingsRate.toFixed(1) + '%', vB: mB.savingsRate.toFixed(1) + '%', dif: mB.savingsRate - mA.savingsRate, isGoodUp: true },
                   ].map(({ l, vA, vB, dif, isGoodUp, header }) => (
                     <div key={l} style={{ display: 'contents' }}>
-                      <div style={{ padding: '10px 16px', fontSize: header ? 10 : 12, color: header ? T.textDim : T.textMid, fontWeight: header ? 600 : 400, borderBottom: `1px solid ${T.border}`, textTransform: header ? 'uppercase' : 'none' }}>{l}</div>
-                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>{vA}</div>
-                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: dif !== undefined ? (isGoodUp ? (dif >= 0 ? T.green : T.red) : (dif <= 0 ? T.green : T.red)) : T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>
+                      <div style={{ padding: '10px 16px', fontSize: header ? 10 : 12, color: header ? T.textDim : T.textMid, fontWeight: header ? 600 : 400, borderBottom: "1px solid #252830", textTransform: header ? 'uppercase' : 'none' }}>{l}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: T.text, borderBottom: "1px solid #252830", borderLeft: "1px solid #252830", textAlign: 'right' }}>{vA}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: dif !== undefined ? (isGoodUp ? (dif >= 0 ? T.green : T.red) : (dif <= 0 ? T.green : T.red)) : T.text, borderBottom: "1px solid #252830", borderLeft: "1px solid #252830", textAlign: 'right' }}>
                         {vB}{dif !== undefined && dif !== 0 && <span style={{ fontSize: 10, marginLeft: 4 }}>({dif >= 0 ? '+' : ''}{typeof dif === 'number' && Math.abs(dif) < 200 ? dif.toFixed(1) + (l.includes('%') ? 'pp' : '') : fmt(Math.abs(dif))})</span>}
                       </div>
                     </div>
@@ -3853,7 +3816,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
           </div>
           {/* Month by month savings table */}
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Monthly Savings Breakdown</div>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -3866,7 +3829,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               </thead>
               <tbody>
                 {months.map(m => (
-                  <tr key={m.key} style={{ borderBottom: `1px solid ${T.border}` }}>
+                  <tr key={m.key} style={{ borderBottom: "1px solid #252830" }}>
                     <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
@@ -3947,7 +3910,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
         </div>
       </div>
       <div style={{ ...S.card, overflow: "hidden" }}>
-        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
+        <div style={{ padding: "12px 20px", borderBottom: "1px solid #252830", display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
           {["Category Group","Budget/Mo","Committed","Actual","Status"].map(h=>(
             <div key={h} style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
           ))}
@@ -3957,7 +3920,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
           const budget=parseFloat(budgets[group])||0, actual=actualByGroup[group]||0, comm=committedByGroup[group]||0;
           const pct=budget>0?Math.min(100,(actual/budget)*100):0, over=budget>0&&actual>budget;
           return (
-            <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
+            <div key={group} className="row-hover" style={{ borderBottom: "1px solid #252830" }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
                 <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>- set</span>}</div>
@@ -4109,13 +4072,13 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       {/* Payoff schedule */}
       <div style={{ ...S.card, overflow: "hidden" }}>
-        <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
+        <div style={{ padding: "12px 20px 8px", borderBottom: "1px solid #252830" }}>
           <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Payoff Order - {method === "avalanche" ? "Avalanche" : "Snowball"} Method</div>
         </div>
         {schedule.map((d, i) => {
           const pct = Math.max(0, Math.min(100, 100 - (d.balance / (parseFloat(d.total) || d.balance)) * 100));
           return (
-            <div key={d.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${T.border}` }}>
+            <div key={d.id} style={{ padding: "14px 20px", borderBottom: "1px solid #252830" }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -4147,6 +4110,7 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
         - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+      </div>
           </div>
         </main>
       </div>
