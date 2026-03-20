@@ -1354,7 +1354,7 @@ export default function App() {
             </div>
             <div className="hide-mobile"><DriveSync/></div>
           </div>
-          <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16}}>
+          <div style={{padding:"20px 12px",display:"flex",flexDirection:"column",gap:16}}>
 
         {/* -- DASHBOARD ---------------------------------------------------------- */}
         {tab === "dashboard" && (
@@ -1888,7 +1888,7 @@ export default function App() {
               const totalLiabilities = debts.reduce((s, d) => s + (parseFloat(d.balance) || 0), 0);
               const netPosition = totalAssets - totalLiabilities;
               return (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
                   <StatCard label="Total Assets" value={fmt(totalAssets)} color="green" />
                   <StatCard label="Total Liabilities" value={fmt(totalLiabilities)} color="red" />
                   <StatCard label="Net Position" value={fmt(netPosition)} color={netPosition >= 0 ? "green" : "red"} />
