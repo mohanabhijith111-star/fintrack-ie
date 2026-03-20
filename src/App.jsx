@@ -1276,46 +1276,43 @@ export default function App() {
       {/* Viewport meta injected for mobile zoom fix */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
-      {/* SIDEBAR LAYOUT */}
-      <div className="app-shell">
-        <aside className="sidebar">
-          <div style={{padding:"18px 16px 14px",borderBottom:"1px solid #252830"}}>
-            <div className="hn" style={{fontSize:20,fontWeight:800,color:"#EEEDF0"}}>Fin<span style={{color:"#F0A03C"}}>Track</span><span style={{color:"#454760",fontWeight:600,fontSize:11,marginLeft:4}}>IE</span></div>
+      {/* -- TOP BAR -- */}
+      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
+            <span className="hn" style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", flexShrink: 0 }}>
+              Fin<span style={{ color: "#F0A03C" }}>Track</span> <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, letterSpacing: "0.05em" }}>IE</span>
+            </span>
             {nextPayday && payroll && (
-              <div style={{marginTop:10,padding:"8px 10px",background:"rgba(240,160,60,0.09)",borderRadius:8,border:"1px solid rgba(240,160,60,0.2)"}}>
-                <div style={{fontSize:9,color:"#F0A03C",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600}}>Next Payday</div>
-                <div style={{fontSize:12,color:"#EEEDF0",marginTop:2}}>{dateStr(nextPayday)}</div>
-                <div className="mono" style={{fontSize:13,fontWeight:600,color:"#F0A03C"}}>{fmt(payroll.perNet)}</div>
+              <div style={{ textAlign: "right", minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Next pay</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} - {fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
-          <nav style={{padding:"8px 0",flex:1}}>
-            <div className="nav-label">Main</div>
-            {[{id:"dashboard",label:"Overview",icon:BarChart2},{id:"transactions",label:"Transactions",icon:Layers}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span>{t.id==="transactions"&&importQueue.length>0&&<span style={{marginLeft:"auto",background:"#E05C5C",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{importQueue.length}</span>}</button>);})}
-            <div className="nav-label" style={{marginTop:8}}>Planning</div>
-            {[{id:"budgeting",label:"Budgeting",icon:Target},{id:"committed",label:"Committed",icon:Calendar}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
-            <div className="nav-label" style={{marginTop:8}}>Insights</div>
-            {[{id:"analytics",label:"Analytics",icon:TrendingDown},{id:"timeline",label:"Timeline",icon:Clock}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
-            <div className="nav-label" style={{marginTop:8}}>Debt</div>
-            {[{id:"debt",label:"Debt Tracker",icon:CreditCard},{id:"planner",label:"Planner",icon:TrendingUp}].map(t=>{const Icon=t.icon;return(<button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>);})}
-          </nav>
-          <div style={{padding:"10px 8px",borderTop:"1px solid #252830"}}>
-            <DriveSync/>
-            <button className={"nav-item"+(tab==="settings"?" active":"")} onClick={()=>setTab("settings")} style={{marginTop:4}}><Settings size={14} style={{flexShrink:0,opacity:0.8}}/><span>Settings</span></button>
+          <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 6 }}>
+            {TABS.map(t => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button key={t.id} className="tab-pill" onClick={() => setTab(t.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? "#F0A03C" : "transparent", color: active ? "#0A0C10" : "#8B8DA0", fontFamily: "inherit", flexShrink: 0, borderRadius: 8, transition: "all 0.15s" }}>
+                  <Icon size={11} />
+                  {t.label}
+                  {t.id === "transactions" && importQueue.length > 0 && (
+                    <span style={{ background: T.red, color: "#fff", borderRadius: 8, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
+                  )}
+                </button>
+              );
+            })}
           </div>
-        </aside>
-        <div className="mobile-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:"#0F1117",borderTop:"1px solid #252830",padding:"4px 0",justifyContent:"space-around",alignItems:"center"}}>
-          {[{id:"dashboard",icon:BarChart2,label:"Home"},{id:"transactions",icon:Layers,label:"Txns"},{id:"analytics",icon:TrendingDown,label:"Stats"},{id:"committed",icon:Calendar,label:"Bills"},{id:"debt",icon:CreditCard,label:"Debt"},{id:"settings",icon:Settings,label:"More"}].map(t=>{const Icon=t.icon;const active=tab===t.id;return(<button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}><Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span></button>);})}
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 6 }}>
+            <DriveSync />
+          </div>
         </div>
-        <main className="main-content" style={{paddingBottom:70}}>
-          <div style={{padding:"16px 24px 12px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
-            <div>
-              <h1 className="hn" style={{fontSize:22,fontWeight:800,color:"#EEEDF0"}}>{TABS.find(t=>t.id===tab)?TABS.find(t=>t.id===tab).label:"Overview"}</h1>
-              <div style={{fontSize:11,color:"#454760",marginTop:2}}>{new Date().toLocaleDateString("en-IE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
-            </div>
-            <div className="hide-mobile"><DriveSync/></div>
-          </div>
-          <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16}}>
+      </div>
+
+      <div className="pad-page" style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* -- DASHBOARD ---------------------------------------------------------- */}
         {tab === "dashboard" && (
@@ -4130,8 +4127,6 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
         - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
-          </div>
-        </main>
       </div>
     </div>
   );
