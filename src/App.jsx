@@ -832,6 +832,7 @@ export default function App() {
   const [customOverheads, setCustomOverheads] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_customOverheads") || "[]"); } catch { return []; } });
   const [recurringAlerts, setRecurringAlerts] = useState([]);
   const [loanPrompt, setLoanPrompt] = useState(null); // {tx, type: "received"|"repayment"} // detected recurring patterns
+  const [splitTx, setSplitTx] = useState(null);
 
   // Computed overhead groups (built-ins + custom)
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
@@ -1646,6 +1647,7 @@ export default function App() {
                     committed={committed}
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
                     onCategory={cat => updateTxCategory(tx.id, cat)}
+                    onSplit={tx => setSplitTx(tx)}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -1829,6 +1831,15 @@ export default function App() {
                               style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11, padding: "2px 6px" }}>--</button>
                           )}
                         </div>
+                        {ce.category && ["Loan Repayment","Credit Card Payment","BNPL Payment","Credit Card Min Payment"].includes(ce.category) && debts.length > 0 && (
+                          <div style={{marginTop:6,display:"flex",alignItems:"center",gap:8}}>
+                            <span style={{fontSize:11,color:T.textDim,flexShrink:0}}>Link debt:</span>
+                            <select value={ce.linkedDebtId||""} onChange={e=>setCommitted(prev=>prev.map(x=>x.id===ce.id?{...x,linkedDebtId:e.target.value}:x))} style={{background:"#1E2028",border:"1px solid #252830",borderRadius:8,color:"#EEEDF0",fontSize:11,padding:"4px 8px",flex:1}}>
+                              <option value="">-- select debt --</option>
+                              {debts.map(d=><option key={d.id} value={d.id}>{d.name} ({fmt(d.balance,d.currency)})</option>)}
+                            </select>
+                          </div>
+                        )}
                         {ce.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{ce.note}</div>}
                         {next && (
                           <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
@@ -2144,6 +2155,15 @@ export default function App() {
       </div>
 
       {/* -- LOAN PROMPT MODAL ---------------------------------------------- */}
+      {splitTx && (
+        <SplitTransactionModal
+          tx={splitTx}
+          overheadGroups={OVERHEAD_GROUPS}
+          onSave={splits => { setTransactions(prev => prev.map(t => t.id === splitTx.id ? { ...t, splits, category: splits[0]?.category || t.category } : t)); setSplitTx(null); }}
+          onDismiss={() => setSplitTx(null)}
+        />
+      )}
+
       {loanPrompt && (
         <LoanPromptModal
           prompt={loanPrompt}
@@ -2709,7 +2729,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit }) {
   const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2771,6 +2791,8 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
             {alreadyCommitted ? "- Committed" : "- Commit"}
           </button>
         )}
+        {!tx.isCredit && onSplit && !tx.splits && <button onClick={()=>onSplit(tx)} style={{background:"#1E2028",color:"#8B8DA0",border:"1px solid #252830",borderRadius:5,padding:"2px 7px",fontSize:10,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Split</button>}
+        {tx.splits && <span style={{background:"rgba(74,143,212,0.09)",color:"#4A8FD4",border:"1px solid rgba(74,143,212,0.25)",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>Split</span>}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
