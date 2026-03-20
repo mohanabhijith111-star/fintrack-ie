@@ -1,27 +1,41 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 
-// ─── DESIGN TOKENS ───────────────────────────────────────────────────────────
-// Palette: warm slate / ivory / amber accent — refined & editorial
+// ─── DESIGN SYSTEM v2 ────────────────────────────────────────────────────────
+// Inspired by Monarch Money: clean sidebar, refined dark theme, modern typography
+// Palette: deep navy base, ivory text, vibrant amber accent, clean greens/reds
 const T = {
-  bg: "#0E0E10",
-  surface: "#18181C",
-  surfaceHigh: "#222228",
-  border: "#2C2C34",
-  borderHover: "#3E3E4A",
-  text: "#F0EEE8",
-  textMid: "#A09E98",
-  textDim: "#5A5856",
-  accent: "#C8965A",       // amber gold
-  accentDim: "#7A5530",
-  green: "#4E9E72",
-  greenDim: "#1E4030",
-  red: "#B85450",
-  redDim: "#3D1C1A",
-  blue: "#5078A8",
-  blueDim: "#1C2E44",
-  purple: "#7E5EA8",
-  purpleDim: "#2A1E3C",
+  // Base
+  bg: "#0A0C10",
+  sidebar: "#0F1117",
+  surface: "#161820",
+  surfaceHigh: "#1E2028",
+  surfaceHover: "#23252F",
+  border: "#252830",
+  borderHover: "#32364A",
+  // Text
+  text: "#EEEDF0",
+  textMid: "#8B8DA0",
+  textDim: "#454760",
+  // Brand accent — vibrant amber
+  accent: "#F0A03C",
+  accentDim: "#6B4518",
+  accentSoft: "#F0A03C18",
+  // Semantic
+  green: "#3DB87A",
+  greenDim: "#143D28",
+  greenSoft: "#3DB87A15",
+  red: "#E05C5C",
+  redDim: "#3D1818",
+  redSoft: "#E05C5C15",
+  blue: "#4A8FD4",
+  blueDim: "#142640",
+  blueSoft: "#4A8FD415",
+  purple: "#8B6FD4",
+  purpleDim: "#241840",
+  purpleSoft: "#8B6FD415",
+  teal: "#2EC4B6",
+  tealDim: "#0D3D39",
 };
 
 // ─── CONSTANTS ────────────────────────────────────────────────────────────────
@@ -656,16 +670,17 @@ function applyRules(description, rules) {
 
 // ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
 const S = {
-  card: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 12 },
-  cardHigh: { background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 12 },
+  card: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
+  cardHigh: { background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 14 },
   input: {
-    background: T.bg, border: `1px solid ${T.border}`, borderRadius: 8,
-    color: T.text, fontFamily: "inherit", fontSize: 13, padding: "8px 12px", width: "100%", outline: "none",
+    background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 8,
+    color: T.text, fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
+    transition: "border-color 0.15s",
   },
-  label: { fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.08em", display: "block", marginBottom: 4 },
+  label: { fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
   btn: {
-    primary: { background: T.accent, color: "#0E0E10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
-    ghost: { background: "transparent", color: T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    primary: { background: T.accent, color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "opacity 0.15s" },
+    ghost: { background: "transparent", color: T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" },
     danger: { background: T.redDim, color: T.red, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
     success: { background: T.greenDim, color: T.green, border: `1px solid ${T.green}40`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
   },
@@ -709,16 +724,16 @@ function Btn({ children, variant = "primary", style: extra = {}, ...props }) {
 
 function Badge({ children, color = "accent" }) {
   const colors = {
-    accent: { bg: T.accentDim + "60", text: T.accent },
-    green: { bg: T.greenDim, text: T.green },
-    red: { bg: T.redDim, text: T.red },
-    blue: { bg: T.blueDim, text: T.blue },
-    dim: { bg: T.surfaceHigh, text: T.textMid },
-    purple: { bg: T.purpleDim, text: T.purple },
+    accent: { bg: T.accentSoft, text: T.accent, border: T.accent + "30" },
+    green: { bg: T.greenSoft, text: T.green, border: T.green + "30" },
+    red: { bg: T.redSoft, text: T.red, border: T.red + "30" },
+    blue: { bg: T.blueSoft, text: T.blue, border: T.blue + "30" },
+    dim: { bg: T.surfaceHigh, text: T.textMid, border: T.border },
+    purple: { bg: T.purpleSoft, text: T.purple, border: T.purple + "30" },
   };
   const c = colors[color] || colors.dim;
   return (
-    <span style={{ background: c.bg, color: c.text, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
+    <span style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
       {children}
     </span>
   );
@@ -733,22 +748,30 @@ function MiniBar({ pct, color = "accent" }) {
   );
 }
 
-function StatCard({ label, value, sub, color = "text", trend, onClick, detail }) {
+function StatCard({ label, value, sub, color = "text", trend, onClick, detail, icon: Icon }) {
   const colors = { text: T.text, green: T.green, red: T.red, accent: T.accent, dim: T.textMid };
+  const bgColors = { green: T.greenSoft, red: T.redSoft, accent: T.accentSoft, text: "transparent", dim: "transparent" };
   const [open, setOpen] = useState(false);
   const clickable = !!onClick || !!detail;
   return (
     <>
       <div onClick={() => { if (detail) setOpen(o => !o); if (onClick) onClick(); }}
-        style={{ ...S.card, padding: "16px 20px", cursor: clickable ? "pointer" : "default", position: "relative" }}
-        className={clickable ? "row-hover" : ""}>
-        <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
-        <div style={{ fontSize: 22, fontWeight: 700, color: colors[color] || T.text, fontFamily: "inherit", letterSpacing: "-0.02em" }}>{value}</div>
-        {sub && <div style={{ fontSize: 12, color: T.textDim, marginTop: 3 }}>{sub}</div>}
-        {clickable && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 10, color: T.textDim }}>{detail && (open ? "▲" : "▼")}</div>}
+        style={{ ...S.card, padding: "18px 20px", cursor: clickable ? "pointer" : "default", position: "relative", overflow: "hidden", transition: "border-color 0.15s, transform 0.15s" }}
+        className={clickable ? "row-hover" : ""}
+        onMouseEnter={e => { if (clickable) e.currentTarget.style.transform = "translateY(-1px)"; }}
+        onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
+        {/* Subtle background tint */}
+        <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: bgColors[color] || "transparent", borderRadius: "0 14px 0 80px", opacity: 0.5 }} />
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          {Icon && <div style={{ width: 28, height: 28, borderRadius: 8, background: bgColors[color] || T.surfaceHigh, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={14} color={colors[color] || T.textMid} /></div>}
+          <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>{label}</div>
+        </div>
+        <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: colors[color] || T.text, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
+        {sub && <div style={{ fontSize: 11, color: T.textDim, marginTop: 5 }}>{sub}</div>}
+        {clickable && <div style={{ position: "absolute", top: 12, right: 12, fontSize: 10, color: T.textDim, opacity: 0.6 }}>{detail && (open ? "▲" : "▼")}</div>}
       </div>
       {open && detail && (
-        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: `1px solid ${T.border}`, gridColumn: "1 / -1" }}>
+        <div style={{ ...S.card, padding: "14px 16px", marginTop: -8, borderTop: `2px solid ${T.accent}`, gridColumn: "1 / -1", animation: "fadeIn 0.15s ease" }}>
           {detail}
         </div>
       )}
@@ -1249,89 +1272,195 @@ export default function App() {
   // ── RENDER ────────────────────────────────────────────────────────────────────
 
   return (
-    <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
+    <div style={{ fontFamily: "Inter, -apple-system, sans-serif", background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; overflow-x: hidden; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: ${T.bg}; }
-        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
-        select option { background: ${T.surface}; color: ${T.text}; }
-        input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
-        .hn { font-family: 'Syne', sans-serif; }
-        .tab-pill:hover { background: ${T.surfaceHigh} !important; color: ${T.text} !important; }
-        .row-hover:hover { background: ${T.surfaceHigh} !important; }
-        /* Responsive two-col: stacks below 600px */
-        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        @media (max-width: 600px) {
-          .two-col { grid-template-columns: 1fr !important; }
-          .hide-mobile { display: none !important; }
-          .pad-page { padding: 14px 12px !important; }
-          .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      html, body, #root { height: 100%; }
+      body { background: ${T.bg}; color: ${T.text}; font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
+      .hn { font-family: 'Syne', sans-serif; letter-spacing: -0.02em; }
+      .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.95em; }
+      .app-shell { display: flex; height: 100vh; overflow: hidden; }
+      .sidebar { width: 220px; min-width: 220px; background: ${T.sidebar}; border-right: 1px solid ${T.border}; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
+      .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; background: ${T.bg}; }
+      .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; margin: 1px 8px; color: ${T.textMid}; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; border: none; background: none; width: calc(100% - 16px); text-align: left; font-family: inherit; }
+      .nav-item:hover { background: ${T.surfaceHover}; color: ${T.text}; }
+      .nav-item.active { background: ${T.accentSoft}; color: ${T.accent}; }
+      .row-hover:hover { background: ${T.surfaceHover} !important; transition: background 0.12s; }
+      ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
+      input:focus, select:focus { outline: none; border-color: ${T.accent} !important; box-shadow: 0 0 0 3px ${T.accentSoft}; }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+      .fade-in { animation: fadeIn 0.2s ease; }
+      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
+      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+      @media (max-width: 768px) {
+        .sidebar { display: none; }
+        .mobile-nav { display: flex !important; }
+        .app-shell { flex-direction: column; }
+        .main-content { height: calc(100vh - 56px); overflow-y: auto; }
+        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        .two-col { grid-template-columns: 1fr !important; }
+        .hide-mobile { display: none !important; }
+      }
+      @media (min-width: 769px) { .mobile-nav { display: none !important; } }
+    `}</style>
 
-      {/* Viewport meta injected for mobile zoom fix */}
+      {/* Viewport meta */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
-      {/* ── TOP BAR ── */}
-      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
-            <span className="hn" style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", flexShrink: 0 }}>
-              Fin<span style={{ color: T.accent }}>Track</span> <span style={{ color: T.textDim, fontWeight: 600, fontSize: 13 }}>IE</span>
-            </span>
+      <div className="app-shell">
+        {/* ── SIDEBAR (desktop) ── */}
+        <aside className="sidebar">
+          {/* Logo */}
+          <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${T.border}` }}>
+            <div className="hn" style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em" }}>
+              Fin<span style={{ color: T.accent }}>Track</span>
+              <span style={{ color: T.textDim, fontWeight: 600, fontSize: 11, marginLeft: 4 }}>IE</span>
+            </div>
             {nextPayday && payroll && (
-              <div style={{ textAlign: "right", minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Next pay</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} · {fmt(payroll.perNet)}</div>
+              <div style={{ marginTop: 8, padding: "6px 10px", background: T.accentSoft, borderRadius: 8, border: `1px solid ${T.accent}30` }}>
+                <div style={{ fontSize: 9, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Next Payday</div>
+                <div className="mono" style={{ fontSize: 12, color: T.text, marginTop: 1 }}>{dateStr(nextPayday)}</div>
+                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: T.accent }}>{fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 6 }}>
-            {TABS.map(t => {
+
+          {/* Nav items */}
+          <nav style={{ padding: "10px 0", flex: 1 }}>
+            {/* Group 1: Main */}
+            <div style={{ padding: "4px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600 }}>Main</div>
+            {[
+              { id: "dashboard", label: "Overview", icon: BarChart2 },
+              { id: "transactions", label: "Transactions", icon: Layers, badge: importQueue.length > 0 ? importQueue.length : 0 },
+              { id: "accounts", label: "Accounts", icon: CreditCard },
+            ].map(t => {
               const Icon = t.icon;
-              const active = tab === t.id;
               return (
-                <button key={t.id} className="tab-pill" onClick={() => setTab(t.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? T.accent : "transparent", color: active ? "#0E0E10" : T.textMid, fontFamily: "inherit", flexShrink: 0 }}>
-                  <Icon size={11} />
-                  {t.label}
-                  {t.id === "transactions" && importQueue.length > 0 && (
-                    <span style={{ background: T.red, color: "#fff", borderRadius: 8, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
-                  )}
+                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                  <Icon size={15} className="nav-icon" />
+                  <span>{t.label}</span>
+                  {t.badge > 0 && <span style={{ marginLeft: "auto", background: T.red, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>{t.badge}</span>}
                 </button>
               );
             })}
-          </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 6 }}>
-            <DriveSync />
-          </div>
-        </div>
-      </div>
 
-      <div className="pad-page" style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
+            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Planning</div>
+            {[
+              { id: "budgeting", label: "Budgeting", icon: Target },
+              { id: "committed", label: "Committed", icon: Calendar },
+              { id: "goals", label: "Goals", icon: Target },
+            ].map(t => {
+              const Icon = t.icon;
+              return (
+                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                  <Icon size={15} className="nav-icon" />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+
+            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Insights</div>
+            {[
+              { id: "analytics", label: "Analytics", icon: TrendingDown },
+              { id: "timeline", label: "Timeline", icon: Clock },
+            ].map(t => {
+              const Icon = t.icon;
+              return (
+                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                  <Icon size={15} className="nav-icon" />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+
+            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Debt</div>
+            {[
+              { id: "debt", label: "Debt Tracker", icon: CreditCard },
+              { id: "planner", label: "Debt Planner", icon: TrendingUp },
+            ].map(t => {
+              const Icon = t.icon;
+              return (
+                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
+                  <Icon size={15} className="nav-icon" />
+                  <span>{t.label}</span>
+                </button>
+              );
+            })}
+          </nav>
+
+          {/* Bottom: Drive sync + settings */}
+          <div style={{ padding: "12px 8px", borderTop: `1px solid ${T.border}` }}>
+            <DriveSync />
+            <button className={`nav-item ${tab === "settings" ? "active" : ""}`} onClick={() => setTab("settings")} style={{ marginTop: 4 }}>
+              <Settings size={15} className="nav-icon" />
+              <span>Settings</span>
+            </button>
+          </div>
+        </aside>
+
+        {/* ── MOBILE NAV BAR ── */}
+        <div className="mobile-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, background: T.sidebar, borderTop: `1px solid ${T.border}`, padding: "6px 4px", gap: 0, justifyContent: "space-around", alignItems: "center" }}>
+          {[
+            { id: "dashboard", icon: BarChart2, label: "Home" },
+            { id: "transactions", icon: Layers, label: "Txns" },
+            { id: "analytics", icon: TrendingDown, label: "Stats" },
+            { id: "committed", icon: Calendar, label: "Bills" },
+            { id: "debt", icon: CreditCard, label: "Debt" },
+            { id: "settings", icon: Settings, label: "More" },
+          ].map(t => {
+            const Icon = t.icon;
+            const active = tab === t.id;
+            return (
+              <button key={t.id} onClick={() => setTab(t.id)}
+                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 10px", border: "none", background: "none", cursor: "pointer", color: active ? T.accent : T.textDim, fontFamily: "inherit", minWidth: 44 }}>
+                <Icon size={18} />
+                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{t.label}</span>
+              </button>
+            );
+          })}
+        </div>
+
+        {/* ── MAIN CONTENT ── */}
+        <main className="main-content" style={{ paddingBottom: 70 }}>
+          {/* Page header */}
+          <div style={{ padding: "20px 24px 0", marginBottom: 20 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+              <div>
+                <h1 className="hn" style={{ fontSize: 22, fontWeight: 800, color: T.text }}>
+                  {TABS.find(t => t.id === tab)?.label || "Overview"}
+                </h1>
+                <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>
+                  {new Date().toLocaleDateString("en-IE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
+                </div>
+              </div>
+              <div className="hide-mobile">
+                <DriveSync />
+              </div>
+            </div>
+          </div>
+
+          <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
 
         {/* ══ DASHBOARD ══════════════════════════════════════════════════════════ */}
         {tab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* KPI row — 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
+              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green" icon={TrendingUp}
                 detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
-              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red"
+              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red" icon={TrendingDown}
                 detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
               />
-              <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
+              <StatCard label="Net Cash Flow" icon={BarChart2} value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
                 detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
               />
-              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent"
+              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent" icon={Calendar}
                 detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
               />
               {payroll && <StatCard label="Fortnightly Net" value={fmt(payroll.perNet)} color="text" sub={fmt(payroll.takeHome) + " /yr"} />}
-              <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
+              <StatCard label="Uncategorised" icon={AlertCircle} value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
                 onClick={() => setTab("transactions")}
                 detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more — click to view all</div>}</div>}
               />
@@ -2735,7 +2864,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
           style={{ background: nature === "capital" ? T.purpleDim : nature === "balance_sheet" ? T.blueDim : T.surfaceHigh, color: nature === "capital" ? T.purple : nature === "balance_sheet" ? T.blue : T.textDim, border: `1px solid ${nature === "capital" ? T.purple+"50" : nature === "balance_sheet" ? T.blue+"50" : T.border}`, borderRadius: 5, padding: "1px 6px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, fontWeight: 600 }}>
           {nature === "capital" ? "CAP" : nature === "balance_sheet" ? "B/S" : "REV"}
         </button>
-        <span style={{ fontSize: 13, fontWeight: 700, color: tx.isCredit ? T.green : T.red, flexShrink: 0 }}>
+        <span className="mono" style={{ fontSize: 13, fontWeight: 600, color: tx.isCredit ? T.green : T.red, flexShrink: 0, letterSpacing: "-0.02em" }}>
           {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency || "EUR")}
         </span>
       </div>
@@ -3221,6 +3350,8 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
           )}
           <Btn variant="ghost" onClick={onDismiss}>Dismiss</Btn>
         </div>
+          </div>
+        </main>
       </div>
     </div>
   );
@@ -3393,8 +3524,8 @@ function DriveSync() {
       {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>&#10003; {lastSync}</span>}
       {!isSignedIn ? (
         <button onClick={signIn} disabled={status === 'syncing'}
-          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
-          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          style={{ background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 8, fontSize: 12, padding: '6px 12px', gap: 6, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap', cursor: 'pointer', display: 'flex', alignItems: 'center', fontFamily: 'inherit', fontWeight: 600 }}>
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Refresh
         </button>
       ) : (
