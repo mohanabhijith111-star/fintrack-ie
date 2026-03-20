@@ -36,7 +36,7 @@ const toISO = (d) => { try { return new Date(d).toISOString().split("T")[0]; } c
 // ─── OVERHEAD CATEGORIES ─────────────────────────────────────────────────────
 const BUILTIN_OVERHEAD_GROUPS = {
   // ── P&L: Income ──────────────────────────────────────────────────────────
-  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Social Welfare", "Other Income"],
+  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Dividend", "Interest Received", "Social Welfare", "Refund", "Cashback", "Reimbursement", "Other Income"],
   // ── P&L: Expenses ────────────────────────────────────────────────────────
   "Housing": ["Rent", "Mortgage", "Home Insurance", "Management Fee", "Repairs & Maintenance"],
   "Motor": ["Car Loan / HP", "Motor Insurance", "Motor Tax", "Fuel", "NCT / Service", "Toll / E-Flow", "Parking"],
@@ -188,6 +188,8 @@ function detectRecurring(transactions) {
 }
 
 const INCOME_CATS = new Set(BUILTIN_OVERHEAD_GROUPS["Income"]);
+const REFUND_CATS = new Set(["Refund", "Cashback", "Reimbursement"]);
+const INVESTMENT_RETURN_CATS = new Set(["Investment Returns", "Dividend", "Interest Received"]);
 
 // ─── IRISH BANK HOLIDAYS 2026 ─────────────────────────────────────────────────
 const IE_BANK_HOLIDAYS = new Set(["2026-01-01","2026-02-02","2026-03-17","2026-04-03","2026-04-06","2026-05-04","2026-06-01","2026-08-03","2026-10-26","2026-12-25","2026-12-26"]);
@@ -822,11 +824,13 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
 const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
+  { id: "accounts", label: "Accounts", icon: CreditCard },
   { id: "budgeting", label: "Budgeting", icon: Target },
   { id: "analytics", label: "Analytics", icon: TrendingDown },
   { id: "committed", label: "Committed", icon: Calendar },
   { id: "debt", label: "Debt", icon: CreditCard },
   { id: "planner", label: "Planner", icon: TrendingUp },
+  { id: "goals", label: "Goals", icon: Target },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "settings", label: "Settings", icon: Settings },
 ];
@@ -845,6 +849,7 @@ export default function App() {
   const [customOverheads, setCustomOverheads] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_customOverheads") || "[]"); } catch { return []; } });
   const [recurringAlerts, setRecurringAlerts] = useState([]);
   const [loanPrompt, setLoanPrompt] = useState(null); // {tx, type: "received"|"repayment"} // detected recurring patterns
+  const [splitTx, setSplitTx] = useState(null); // {tx} — transaction to split across categories
 
   // Computed overhead groups (built-ins + custom)
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
@@ -1011,7 +1016,7 @@ export default function App() {
     setTransactions(prev => [newTx, ...prev]);
   }
 
-  function updateTxCategory(id, category) {
+  function updateTxCategory(id, category, overrideOnly = false) {
     const nature = defaultNature(category);
     const kw = (() => {
       // Get the keyword from the transaction description
@@ -1038,8 +1043,8 @@ export default function App() {
     setTransactions(prev => prev.map(tx => {
       if (tx.id === id) return { ...tx, category, nature };
       // Apply to ALL transactions with matching description (not just uncategorised)
-      // This ensures filtered searches categorise all matching rows at once
-      if (kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature };
+      // UNLESS overrideOnly is set — in that case only change this single transaction
+      if (!overrideOnly && kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature, ruleMatched: true };
       return tx;
     }));
 
@@ -1588,7 +1593,8 @@ export default function App() {
                     debts={debts}
                     committed={committed}
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
-                    onCategory={cat => updateTxCategory(tx.id, cat)}
+                    onSplit={tx => setSplitTx(tx)}
+                    onCategory={(cat, overrideOnly) => updateTxCategory(tx.id, cat, overrideOnly)}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -1749,27 +1755,32 @@ export default function App() {
                               return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
                             })}
                             onChange={cat => {
-                              // Update committed expense category
+                              // Update committed expense category (always editable)
                               setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: cat } : x));
-                              // Auto-apply to all matching transactions
-                              if (cat) {
-                                const kw = ce.name.toLowerCase().trim();
-                                setTransactions(prev => prev.map(tx => {
-                                  if (tx.isCredit) return tx;
-                                  const desc = (tx.description || "").toLowerCase().trim();
-                                  if (desc === kw || desc.includes(kw) || kw.includes(desc.substring(0, Math.min(desc.length, 20)))) {
-                                    return { ...tx, category: cat };
-                                  }
-                                  return tx;
-                                }));
-                                // Also create/update auto-categorisation rule
-                                setRules(prev => {
-                                  const existing = prev.find(r => r.category === cat && r.keywords?.some(k => kw.includes(k) || k.includes(kw)));
-                                  if (existing) return prev;
-                                  const shortKw = kw.split(" ").slice(0, 3).join(" ");
-                                  return [...prev.filter(r => !(r.keywords?.includes(shortKw))), { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
-                                });
-                              }
+                              if (!cat) return;
+                              // Auto-apply to ALL matching transactions using normalised description
+                              const normName = normaliseDesc(ce.name);
+                              setTransactions(prev => prev.map(tx => {
+                                if (tx.isCredit) return tx;
+                                const normDesc = normaliseDesc(tx.description || "");
+                                // Match if normalised descriptions share meaningful overlap
+                                if (normDesc === normName ||
+                                    normDesc.includes(normName) ||
+                                    normName.includes(normDesc) ||
+                                    (normName.length > 4 && normDesc.includes(normName.substring(0, Math.min(normName.length, 12))))) {
+                                  return { ...tx, category: cat };
+                                }
+                                return tx;
+                              }));
+                              // Create/update auto-categorisation rule
+                              setRules(prev => {
+                                const normName = normaliseDesc(ce.name);
+                                const shortKw = normName.split(" ").filter(w => w.length > 2).slice(0, 2).join(" ");
+                                if (!shortKw) return prev;
+                                // Remove any existing rule with this keyword
+                                const filtered = prev.filter(r => !r.keywords?.includes(shortKw));
+                                return [...filtered, { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
+                              });
                             }}
                             style={{ fontSize: 12 }}
                           />
@@ -1816,6 +1827,11 @@ export default function App() {
               })}
             </div>
           </div>
+        )}
+
+        {/* ══ ACCOUNTS ══════════════════════════════════════════════════════════ */}
+        {tab === "accounts" && (
+          <AccountsTab transactions={transactions} debts={debts} />
         )}
 
         {/* ══ MONTHLY ════════════════════════════════════════════════════════════ */}
@@ -2004,9 +2020,28 @@ export default function App() {
           <DebtPlannerTab debts={debts} setDebts={setDebts} />
         )}
 
+        {/* ══ GOALS ═══════════════════════════════════════════════════════════════ */}
+        {tab === "goals" && (
+          <GoalsTab />
+        )}
+
         {/* ══ SETTINGS ══════════════════════════════════════════════════════════ */}
         {tab === "settings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 700 }}>
+
+            {/* Export & Backup */}
+            <div style={{ ...S.card, padding: "16px 20px" }}>
+              <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Export & Backup</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Download your data anytime for backup or use in other tools.</div>
+              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
+                <Btn variant="ghost" onClick={() => exportToCSV(transactions)}>
+                  <Upload size={13} /> Export CSV
+                </Btn>
+                <Btn variant="ghost" onClick={() => exportToJSON({ transactions, committed, debts, rules, customOverheads, exportedAt: new Date().toISOString() })}>
+                  <Upload size={13} /> Full Backup JSON
+                </Btn>
+              </div>
+            </div>
 
             {/* Custom Overheads */}
             <div style={{ ...S.card, padding: 20 }}>
@@ -2088,6 +2123,19 @@ export default function App() {
       </div>
 
       {/* ── LOAN PROMPT MODAL ────────────────────────────────────────────── */}
+      {/* Split Transaction Modal */}
+      {splitTx && (
+        <SplitTransactionModal
+          tx={splitTx}
+          overheadGroups={OVERHEAD_GROUPS}
+          onSave={(splits) => {
+            setTransactions(prev => prev.map(t => t.id === splitTx.id ? { ...t, splits, category: splits[0]?.category || t.category } : t));
+            setSplitTx(null);
+          }}
+          onDismiss={() => setSplitTx(null)}
+        />
+      )}
+
       {loanPrompt && (
         <LoanPromptModal
           prompt={loanPrompt}
@@ -2307,11 +2355,26 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
     if (!editing) setForm(f => ({ ...f, balance: debt.balance, balanceAsOf: today() }));
   }
 
-  const balance = parseFloat(form.balance) || 0;
-  const total = parseFloat(form.total) || balance;
+  // For BNPL: auto-calculate remaining balance based on payments made since opening
+  const rawBalance = parseFloat(form.balance) || 0;
+  const total = parseFloat(form.total) || rawBalance;
   const rate = parseFloat(form.rate) || 0;
   const term = parseInt(form.termMonths) || 0;
   const freq = form.paymentFrequency || "monthly";
+
+  // BNPL auto-balance: count periods elapsed since balanceAsOf, deduct instalments
+  const balance = (() => {
+    if (debt.type !== "bnpl" || !form.balanceAsOf || !term || !total) return rawBalance;
+    const instalment = total / term;
+    const asOfDate = new Date(form.balanceAsOf + "T12:00:00");
+    const now = new Date();
+    const monthsElapsed = (now.getFullYear() - asOfDate.getFullYear()) * 12 + (now.getMonth() - asOfDate.getMonth());
+    // Only auto-calc if no manual payments have been recorded
+    if ((debt.paymentHistory || []).length > 0) return rawBalance;
+    const autoBalance = Math.max(0, rawBalance - (Math.max(0, monthsElapsed) * instalment));
+    return parseFloat(autoBalance.toFixed(2));
+  })();
+
   const pct = total > 0 ? Math.min(100, ((total - balance) / total) * 100) : 0;
 
   const periodicPayment = calcPMT(balance, rate, term, freq);
@@ -2381,9 +2444,9 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
   return (
     <div style={{ ...S.card, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
             <span className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{debt.name}</span>
             {isFirst && <Badge color="red">Avalanche Priority</Badge>}
             {rate > 0 && <Badge color="accent">{rate}% APR</Badge>}
@@ -2426,7 +2489,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
       {/* Edit form */}
       {editing && (
         <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
             <div>
@@ -2643,7 +2706,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit }) {
   const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2683,9 +2746,18 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
           value={tx.category || ""}
           overheadGroups={OG}
           onNewCategory={label => { if (onNewCategory) onNewCategory(label); }}
-          onChange={cat => onCategory(cat)}
+          onChange={(cat, overrideOnly) => onCategory(cat, overrideOnly)}
           placeholder="Type or select category..."
         />
+        {/* "This one only" badge — stops bulk rule from overriding this tx */}
+        {tx.ruleMatched && !tx.categoryOverride && (
+          <button
+            title="This category was set by a rule. Click to override just this transaction without affecting others."
+            onClick={() => onCategory(tx.category, true)}
+            style={{ background: T.accentDim+"40", color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 5, padding: "2px 6px", fontSize: 9, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
+            rule
+          </button>
+        )}
         {tx.debtAllocated && <Badge color="purple">Debt</Badge>}
         {tx.aiSuggested && <Badge color="blue">AI</Badge>}
         {tx.isPAYE && <Badge color="green">PAYE</Badge>}
@@ -2705,6 +2777,15 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
             {alreadyCommitted ? "★ Committed" : "★ Commit"}
           </button>
         )}
+        {/* Split transaction button */}
+        {!tx.isCredit && onSplit && !tx.splits && (
+          <button onClick={() => onSplit(tx)}
+            title="Split this transaction across multiple categories"
+            style={{ background: T.surfaceHigh, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
+            Split
+          </button>
+        )}
+        {tx.splits && <Badge color="blue">Split</Badge>}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
@@ -3214,17 +3295,18 @@ function DriveSync() {
   const push = async () => {
     try {
       const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-      if (localTx === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 2000); return; }
-      setStatus('syncing'); setMsg('Saving to Drive...');
+      if (localTx === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 3000); return; }
+      setStatus('syncing'); setMsg('Saving...');
       const t = await getToken();
       await saveToGDrive(t);
       const ts = new Date().toLocaleString('en-IE');
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('saved'); setMsg(`Saved ${localTx} transactions`);
+      setStatus('saved'); setMsg(`✓ Saved ${localTx} transactions`);
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     } catch(e) {
-      setStatus('error'); setMsg('Save failed');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+      tokenRef.current = null;
+      setStatus('error'); setMsg('Session expired — tap Refresh to sign in again');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 5000);
     }
   };
 
@@ -3233,7 +3315,6 @@ function DriveSync() {
     try {
       setStatus('syncing'); setMsg('Fetching from Drive...');
       const t = await getToken();
-      // Direct fetch — bypass the "don't overwrite" guard for manual pull
       const fileId = await findOrCreateFile(t);
       const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { Authorization: `Bearer ${t}` }
@@ -3242,19 +3323,22 @@ function DriveSync() {
       const data = await r.json();
       const driveTx = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
       if (driveTx === 0) {
-        setStatus('error'); setMsg('No data on Drive yet');
-        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+        setStatus('error'); setMsg('No data on Drive yet — Push your data first');
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
         return;
       }
       // Apply Drive data to localStorage
       LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
-      const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
+      // Always use current time as "pulled at" so timestamp is always fresh
+      const ts = new Date().toLocaleString('en-IE');
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions — reloading`);
-      setTimeout(() => window.location.reload(), 800);
+      setStatus('loaded'); setMsg(`✓ Loaded ${driveTx} transactions`);
+      setTimeout(() => window.location.reload(), 1000);
     } catch(e) {
-      setStatus('error'); setMsg('Pull failed');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
+      // Token may have expired — reset so user can re-sign-in
+      tokenRef.current = null;
+      setStatus('error'); setMsg('Session expired — tap Refresh to sign in again');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 5000);
     }
   };
 
@@ -3331,6 +3415,314 @@ function DriveSync() {
       )}
     </div>
   );
+}
+
+
+// ─── SPLIT TRANSACTION MODAL ─────────────────────────────────────────────────
+function SplitTransactionModal({ tx, overheadGroups, onSave, onDismiss }) {
+  const [splits, setSplits] = useState([
+    { id: '1', category: tx.category || '', amount: (tx.amount / 2).toFixed(2) },
+    { id: '2', category: '', amount: (tx.amount / 2).toFixed(2) },
+  ]);
+  const total = splits.reduce((s, sp) => s + (parseFloat(sp.amount) || 0), 0);
+  const remaining = tx.amount - total;
+  const isBalanced = Math.abs(remaining) < 0.01;
+
+  const addSplit = () => setSplits(prev => [...prev, { id: Date.now().toString(), category: '', amount: Math.max(0, remaining).toFixed(2) }]);
+  const removeSplit = (id) => setSplits(prev => prev.filter(s => s.id !== id));
+  const updateSplit = (id, field, val) => setSplits(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
+
+  return (
+    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
+      <div style={{ ...S.card, padding: 24, maxWidth: 480, width: '100%', background: T.surface }}>
+        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Split Transaction</div>
+        <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
+          <span style={{ fontSize: 12, color: T.textMid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{tx.description}</span>
+          <span style={{ fontSize: 14, fontWeight: 700, color: T.red, flexShrink: 0, marginLeft: 8 }}>{fmt(tx.amount)}</span>
+        </div>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
+          {splits.map((sp, i) => (
+            <div key={sp.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <div style={{ flex: 1 }}>
+                <CategoryCombo
+                  value={sp.category}
+                  overheadGroups={overheadGroups}
+                  placeholder={`Category ${i + 1}...`}
+                  onChange={cat => updateSplit(sp.id, 'category', cat)}
+                />
+              </div>
+              <input type="number" step="0.01" min="0" value={sp.amount}
+                onChange={e => updateSplit(sp.id, 'amount', e.target.value)}
+                style={{ ...S.input, width: 90, fontSize: 13, padding: '6px 10px' }} />
+              {splits.length > 2 && (
+                <button onClick={() => removeSplit(sp.id)} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><X size={13} /></button>
+              )}
+            </div>
+          ))}
+        </div>
+        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: `1px solid ${T.border}`, marginBottom: 16 }}>
+          <span style={{ fontSize: 12, color: T.textDim }}>Remaining unallocated</span>
+          <span style={{ fontSize: 13, fontWeight: 700, color: Math.abs(remaining) < 0.01 ? T.green : T.red }}>{fmt(Math.abs(remaining))}{remaining > 0.01 ? ' left' : remaining < -0.01 ? ' over' : ' ✓'}</span>
+        </div>
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+          <Btn variant="ghost" onClick={addSplit}><Plus size={13} /> Add line</Btn>
+          <Btn disabled={!isBalanced || splits.some(s => !s.category)} onClick={() => isBalanced && onSave(splits)}>
+            <Check size={13} /> Save Split
+          </Btn>
+          <Btn variant="ghost" onClick={onDismiss}>Cancel</Btn>
+        </div>
+        {!isBalanced && <div style={{ fontSize: 11, color: T.accent, marginTop: 8 }}>Amounts must add up to {fmt(tx.amount)} before saving.</div>}
+      </div>
+    </div>
+  );
+}
+
+// ─── ACCOUNTS TAB ─────────────────────────────────────────────────────────────
+function AccountsTab({ transactions, debts }) {
+  const [accounts, setAccounts] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_accounts') || '[]'); } catch { return []; } });
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: '', type: 'bank', currency: 'EUR', openingBalance: '0', note: '' });
+  useEffect(() => { try { localStorage.setItem('ft_accounts', JSON.stringify(accounts)); } catch {} }, [accounts]);
+
+  const accountTypes = [
+    { id: 'bank', label: 'Bank / Current', icon: '🏦' },
+    { id: 'savings', label: 'Savings', icon: '💰' },
+    { id: 'credit', label: 'Credit Card', icon: '💳' },
+    { id: 'loan', label: 'Loan / HP', icon: '📋' },
+    { id: 'investment', label: 'Investment', icon: '📈' },
+    { id: 'cash', label: 'Cash', icon: '💵' },
+    { id: 'asset', label: 'Asset', icon: '🏠' },
+  ];
+
+  // Calculate balance for each account from transactions
+  const balances = useMemo(() => {
+    const map = {};
+    accounts.forEach(acc => {
+      const opening = parseFloat(acc.openingBalance) || 0;
+      const txTotal = transactions
+        .filter(tx => tx.accountId === acc.id)
+        .reduce((s, tx) => s + (tx.isCredit ? tx.amount : -tx.amount), 0);
+      map[acc.id] = opening + txTotal;
+    });
+    return map;
+  }, [accounts, transactions]);
+
+  const totalAssets = accounts
+    .filter(a => ['bank','savings','investment','cash','asset'].includes(a.type))
+    .reduce((s, a) => s + (balances[a.id] || 0), 0);
+  const totalLiabilities = accounts
+    .filter(a => ['credit','loan'].includes(a.type))
+    .reduce((s, a) => s + Math.abs(balances[a.id] || 0), 0);
+  const netWorth = totalAssets - totalLiabilities;
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      {/* Net worth summary */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+        {[
+          { l: 'Net Worth', v: fmt(netWorth), c: netWorth >= 0 ? T.green : T.red },
+          { l: 'Total Assets', v: fmt(totalAssets), c: T.green },
+          { l: 'Total Liabilities', v: fmt(totalLiabilities), c: T.red },
+          { l: 'Accounts', v: accounts.length.toString(), c: T.text },
+        ].map(({ l, v, c }) => (
+          <div key={l} style={{ ...S.card, padding: '12px 16px' }}>
+            <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', marginBottom: 4 }}>{l}</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: c }}>{v}</div>
+          </div>
+        ))}
+      </div>
+
+      {/* Account list */}
+      <div style={{ ...S.card, overflow: 'hidden' }}>
+        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>Your Accounts</div>
+          <Btn onClick={() => setShowAdd(s => !s)}><Plus size={13} /> Add Account</Btn>
+        </div>
+        {showAdd && (
+          <div style={{ padding: '14px 20px', background: T.surfaceHigh, borderBottom: `1px solid ${T.border}` }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 10 }}>
+              <div><label style={S.label}>Account Name</label>
+                <input value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} style={S.input} placeholder="e.g. PTSB Current" /></div>
+              <div><label style={S.label}>Type</label>
+                <select value={form.type} onChange={e => setForm(p=>({...p,type:e.target.value}))} style={S.input}>
+                  {accountTypes.map(t => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
+                </select></div>
+              <div><label style={S.label}>Currency</label>
+                <select value={form.currency} onChange={e => setForm(p=>({...p,currency:e.target.value}))} style={S.input}>
+                  {['EUR','GBP','USD','INR'].map(c => <option key={c}>{c}</option>)}
+                </select></div>
+              <div><label style={S.label}>Opening Balance</label>
+                <input type="number" step="0.01" value={form.openingBalance} onChange={e => setForm(p=>({...p,openingBalance:e.target.value}))} style={S.input} /></div>
+              <div style={{ gridColumn: 'span 2' }}><label style={S.label}>Note (optional)</label>
+                <input value={form.note} onChange={e => setForm(p=>({...p,note:e.target.value}))} style={S.input} placeholder="Account number, bank name..." /></div>
+            </div>
+            <Btn onClick={() => {
+              if (!form.name) return;
+              setAccounts(prev => [...prev, { ...form, id: Date.now().toString(), createdAt: today() }]);
+              setForm({ name: '', type: 'bank', currency: 'EUR', openingBalance: '0', note: '' });
+              setShowAdd(false);
+            }}><Plus size={13} /> Save Account</Btn>
+          </div>
+        )}
+        {accounts.length === 0 && (
+          <div style={{ padding: 40, textAlign: 'center', color: T.textDim, fontSize: 13 }}>
+            No accounts yet. Add your bank accounts, credit cards and loans to track net worth.
+          </div>
+        )}
+        {accounts.map(acc => {
+          const at = accountTypes.find(t => t.id === acc.type);
+          const bal = balances[acc.id] || 0;
+          const isLiability = ['credit','loan'].includes(acc.type);
+          return (
+            <div key={acc.id} style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+                <span style={{ fontSize: 20 }}>{at?.icon || '🏦'}</span>
+                <div>
+                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{acc.name}</div>
+                  <div style={{ fontSize: 11, color: T.textDim }}>{at?.label} · {acc.currency}{acc.note ? ` · ${acc.note}` : ''}</div>
+                </div>
+              </div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
+                <div style={{ textAlign: 'right' }}>
+                  <div style={{ fontSize: 15, fontWeight: 700, color: isLiability ? T.red : bal >= 0 ? T.green : T.red }}>{fmt(bal, acc.currency)}</div>
+                  <div style={{ fontSize: 10, color: T.textDim }}>{isLiability ? 'outstanding' : 'balance'}</div>
+                </div>
+                <button onClick={() => setAccounts(prev => prev.filter(a => a.id !== acc.id))} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><Trash2 size={13} /></button>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+// ─── GOALS TAB ────────────────────────────────────────────────────────────────
+function GoalsTab() {
+  const [goals, setGoals] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_goals') || '[]'); } catch { return []; } });
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', currency: 'EUR', note: '' });
+  useEffect(() => { try { localStorage.setItem('ft_goals', JSON.stringify(goals)); } catch {} }, [goals]);
+
+  const addGoal = () => {
+    if (!form.name || !form.targetAmount) return;
+    setGoals(prev => [...prev, { ...form, id: Date.now().toString(), createdAt: today() }]);
+    setForm({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', currency: 'EUR', note: '' });
+    setShowAdd(false);
+  };
+
+  const updateAmount = (id, val) => setGoals(prev => prev.map(g => g.id === id ? { ...g, currentAmount: val } : g));
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+      <div style={{ ...S.card, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <div>
+          <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Savings Goals</div>
+          <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>Track progress toward your financial targets</div>
+        </div>
+        <Btn onClick={() => setShowAdd(s => !s)}><Plus size={13} /> New Goal</Btn>
+      </div>
+
+      {showAdd && (
+        <div style={{ ...S.card, padding: '16px 20px' }}>
+          <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12 }}>New Savings Goal</div>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
+            <div style={{ gridColumn: 'span 2' }}><label style={S.label}>Goal Name</label>
+              <input value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} style={S.input} placeholder="e.g. Emergency Fund, Holiday, New Car" /></div>
+            <div><label style={S.label}>Target Amount (€)</label>
+              <input type="number" step="100" value={form.targetAmount} onChange={e => setForm(p=>({...p,targetAmount:e.target.value}))} style={S.input} /></div>
+            <div><label style={S.label}>Current Saved (€)</label>
+              <input type="number" step="10" value={form.currentAmount} onChange={e => setForm(p=>({...p,currentAmount:e.target.value}))} style={S.input} /></div>
+            <div><label style={S.label}>Target Date (optional)</label>
+              <input type="date" value={form.targetDate} onChange={e => setForm(p=>({...p,targetDate:e.target.value}))} style={S.input} /></div>
+            <div><label style={S.label}>Note</label>
+              <input value={form.note} onChange={e => setForm(p=>({...p,note:e.target.value}))} style={S.input} placeholder="Optional note" /></div>
+          </div>
+          <div style={{ display: 'flex', gap: 8 }}>
+            <Btn onClick={addGoal}><Plus size={13} /> Add Goal</Btn>
+            <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Btn>
+          </div>
+        </div>
+      )}
+
+      {goals.length === 0 && !showAdd && (
+        <div style={{ ...S.card, padding: 40, textAlign: 'center', color: T.textDim, fontSize: 13 }}>
+          No goals yet. Set a savings goal to track your progress.
+        </div>
+      )}
+
+      {goals.map(g => {
+        const target = parseFloat(g.targetAmount) || 0;
+        const current = parseFloat(g.currentAmount) || 0;
+        const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
+        const remaining = Math.max(0, target - current);
+        const daysLeft = g.targetDate ? Math.max(0, Math.round((new Date(g.targetDate) - new Date()) / 86400000)) : null;
+        const monthsLeft = daysLeft !== null ? Math.ceil(daysLeft / 30) : null;
+        const monthlyNeeded = monthsLeft && monthsLeft > 0 ? remaining / monthsLeft : null;
+
+        return (
+          <div key={g.id} style={{ ...S.card, padding: '16px 20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{g.name}</div>
+                {g.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{g.note}</div>}
+                {g.targetDate && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Target: {dateStr(g.targetDate)}{daysLeft !== null ? ` (${daysLeft} days)` : ''}</div>}
+              </div>
+              <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><Trash2 size={13} /></button>
+            </div>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
+              {[
+                { l: 'Saved', v: fmt(current, g.currency), c: T.green },
+                { l: 'Target', v: fmt(target, g.currency), c: T.text },
+                { l: 'Remaining', v: fmt(remaining, g.currency), c: T.accent },
+              ].map(({ l, v, c }) => (
+                <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
+                  <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div>
+                  <div style={{ fontSize: 14, fontWeight: 700, color: c }}>{v}</div>
+                </div>
+              ))}
+            </div>
+            <div style={{ height: 8, background: T.border, borderRadius: 4, marginBottom: 6 }}>
+              <div style={{ height: '100%', width: pct + '%', background: pct >= 100 ? T.green : T.accent, borderRadius: 4, transition: 'width 0.4s' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.textDim, marginBottom: 10 }}>
+              <span>{pct.toFixed(1)}% complete</span>
+              {monthlyNeeded && <span>~{fmt(monthlyNeeded)}/month needed</span>}
+            </div>
+            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+              <span style={{ fontSize: 11, color: T.textMid }}>Update saved amount:</span>
+              <input type="number" step="10" defaultValue={g.currentAmount}
+                style={{ ...S.input, width: 110, fontSize: 12, padding: '5px 8px' }}
+                onKeyDown={e => { if (e.key === 'Enter') updateAmount(g.id, e.target.value); }}
+                onBlur={e => updateAmount(g.id, e.target.value)} />
+              <span style={{ fontSize: 10, color: T.textDim }}>Enter to save</span>
+            </div>
+          </div>
+        );
+      })}
+    </div>
+  );
+}
+
+// ─── EXPORT DATA UTILITY ──────────────────────────────────────────────────────
+function exportToCSV(transactions) {
+  const header = ['Date','Description','Amount','Type','Category','Nature','Currency'];
+  const rows = transactions.map(tx => [
+    tx.date, `"${(tx.description||'').replace(/"/g,'""')}"`,
+    tx.amount.toFixed(2), tx.isCredit ? 'Credit' : 'Debit',
+    `"${(tx.category||'').replace(/"/g,'""')}"`,
+    tx.nature || 'revenue', tx.currency || 'EUR'
+  ]);
+  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
+  const blob = new Blob([csv], { type: 'text/csv' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `fintrack-export-${today()}.csv`; a.click();
+}
+
+function exportToJSON(data) {
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = `fintrack-backup-${today()}.json`; a.click();
 }
 
 // ─── ANALYTICS TAB ───────────────────────────────────────────────────────────

@@ -2,20 +2,26 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1" />
-    <meta name="theme-color" content="#0E0E10" />
-    <meta name="description" content="FinTrack IE - Irish personal finance tracker" />
+    <link rel="icon" type="image/svg+xml" href="/fintrack-ie/favicon.svg" />
+    <link rel="apple-touch-icon" href="/fintrack-ie/icon-192.png" />
+    <link rel="manifest" href="/fintrack-ie/manifest.json" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="theme-color" content="#C8965A" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    <meta name="apple-mobile-web-app-title" content="FinTrack IE" />
     <title>FinTrack IE</title>
-    <link rel="manifest" href="/manifest.json">
-  <meta name="theme-color" content="#C8965A">
-  <meta name="apple-mobile-web-app-capable" content="yes">
-  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-  <meta name="apple-mobile-web-app-title" content="FinTrack">
-  <link rel="apple-touch-icon" href="/icon-192.png">
-  <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js'));}</script>
-</head>
+  </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/src/main.jsx"></script>
+    <script type="module" src="/fintrack-ie/src/main.jsx"></script>
+    <script>
+      // Register service worker for PWA
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/fintrack-ie/sw.js').catch(() => {});
+        });
+      }
+    </script>
   </body>
 </html>
