@@ -2097,8 +2097,10 @@ export default function App() {
           onDismiss={() => setLoanPrompt(null)}
         />
       )}
-  );
-}
+          </div>
+        </main>
+      </div>
+    </div>
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
@@ -4108,13 +4110,5 @@ function DebtPlannerTab({ debts, setDebts }) {
           );
         })}
       </div>
-
-      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
-        - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
-      </div>
-          </div>
-        </main>
-      </div>
-    </div>
   );
 }
