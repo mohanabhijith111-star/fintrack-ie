@@ -4,31 +4,14 @@ import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Pl
 // --- DESIGN TOKENS -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
 const T = {
-  bg: "#0A0C10",
-  sidebar: "#0F1117",
-  surface: "#161820",
-  surfaceHigh: "#1E2028",
-  surfaceHover: "#23252F",
-  border: "#252830",
-  borderHover: "#32364A",
-  text: "#EEEDF0",
-  textMid: "#8B8DA0",
-  textDim: "#454760",
-  accent: "#F0A03C",
-  accentDim: "#6B4518",
-  accentSoft: "rgba(240,160,60,0.09)",
-  green: "#3DB87A",
-  greenDim: "#143D28",
-  greenSoft: "rgba(61,184,122,0.08)",
-  red: "#E05C5C",
-  redDim: "#3D1818",
-  redSoft: "rgba(224,92,92,0.08)",
-  blue: "#4A8FD4",
-  blueDim: "#142640",
-  blueSoft: "rgba(74,143,212,0.08)",
-  purple: "#8B6FD4",
-  purpleDim: "#241840",
-  purpleSoft: "rgba(139,111,212,0.08)",
+  bg:"#0A0C10",sidebar:"#0F1117",surface:"#161820",surfaceHigh:"#1E2028",
+  surfaceHover:"#23252F",border:"#252830",borderHover:"#32364A",
+  text:"#EEEDF0",textMid:"#8B8DA0",textDim:"#454760",
+  accent:"#F0A03C",accentDim:"#6B4518",accentSoft:"rgba(240,160,60,0.09)",
+  green:"#3DB87A",greenDim:"#143D28",greenSoft:"rgba(61,184,122,0.08)",
+  red:"#E05C5C",redDim:"#3D1818",redSoft:"rgba(224,92,92,0.08)",
+  blue:"#4A8FD4",blueDim:"#142640",blueSoft:"rgba(74,143,212,0.08)",
+  purple:"#8B6FD4",purpleDim:"#241840",purpleSoft:"rgba(139,111,212,0.08)",
 };
 
 // --- CONSTANTS ----------------------------------------------------------------
@@ -43,7 +26,7 @@ const toISO = (d) => { try { return new Date(d).toISOString().split("T")[0]; } c
 // --- OVERHEAD CATEGORIES -----------------------------------------------------
 const BUILTIN_OVERHEAD_GROUPS = {
   // -- P&L: Income ----------------------------------------------------------
-  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Social Welfare", "Other Income"],
+  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Dividend", "Interest Received", "Social Welfare", "Refund", "Cashback", "Reimbursement", "Other Income"],
   // -- P&L: Expenses --------------------------------------------------------
   "Housing": ["Rent", "Mortgage", "Home Insurance", "Management Fee", "Repairs & Maintenance"],
   "Motor": ["Car Loan / HP", "Motor Insurance", "Motor Tax", "Fuel", "NCT / Service", "Toll / E-Flow", "Parking"],
@@ -661,18 +644,15 @@ function applyRules(description, rules) {
 
 // --- UI PRIMITIVES ------------------------------------------------------------
 const S = {
-  card: { background: "#161820", border: "1px solid #252830", borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
-  cardHigh: { background: "#1E2028", border: "1px solid #252830", borderRadius: 14 },
-  input: {
-    background: "#1E2028", border: "1px solid #252830", borderRadius: 8,
-    color: "#EEEDF0", fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
-  },
-  label: { fontSize: 11, color: "#8B8DA0", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
-  btn: {
-    primary: { background: "#F0A03C", color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
-    ghost: { background: "transparent", color: "#8B8DA0", border: "1px solid #252830", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
-    danger: { background: "#3D1818", color: "#E05C5C", border: "1px solid rgba(224,92,92,0.25)", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
-    success: { background: "#143D28", color: "#3DB87A", border: "1px solid rgba(61,184,122,0.25)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+  card:{background:"#161820",border:"1px solid #252830",borderRadius:14,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"},
+  cardHigh:{background:"#1E2028",border:"1px solid #252830",borderRadius:14},
+  input:{background:"#1E2028",border:"1px solid #252830",borderRadius:8,color:"#EEEDF0",fontFamily:"inherit",fontSize:13,padding:"9px 12px",width:"100%",outline:"none"},
+  label:{fontSize:11,color:"#8B8DA0",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600,display:"block",marginBottom:5},
+  btn:{
+    primary:{background:"#F0A03C",color:"#0A0C10",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+    ghost:{background:"transparent",color:"#8B8DA0",border:"1px solid #252830",borderRadius:8,padding:"8px 14px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+    danger:{background:"#3D1818",color:"#E05C5C",border:"1px solid rgba(224,92,92,0.25)",borderRadius:8,padding:"7px 12px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4},
+    success:{background:"#143D28",color:"#3DB87A",border:"1px solid rgba(61,184,122,0.25)",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
   },
 };
 
@@ -1018,7 +998,7 @@ export default function App() {
     setTransactions(prev => [newTx, ...prev]);
   }
 
-  function updateTxCategory(id, category) {
+  function updateTxCategory(id, category, overrideOnly = false) {
     const nature = defaultNature(category);
     const kw = (() => {
       // Get the keyword from the transaction description
@@ -1046,7 +1026,7 @@ export default function App() {
       if (tx.id === id) return { ...tx, category, nature };
       // Apply to ALL transactions with matching description (not just uncategorised)
       // This ensures filtered searches categorise all matching rows at once
-      if (kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature };
+      if (!overrideOnly && kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature, ruleMatched: true };
       return tx;
     }));
 
@@ -1254,23 +1234,16 @@ export default function App() {
     <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #0A0C10; color: #EEEDF0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
-      .hn { font-family: Syne, sans-serif; letter-spacing: -0.02em; }
-      .mono { font-family: JetBrains Mono, monospace; font-size: 0.93em; }
-      .row-hover:hover { background: #23252F !important; transition: background 0.12s; }
-      ::-webkit-scrollbar { width: 4px; height: 4px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #252830; border-radius: 4px; }
-      input:focus, select:focus { outline: none; border-color: #F0A03C !important; box-shadow: 0 0 0 3px rgba(240,160,60,0.09); }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-      .fade-in { animation: fadeIn 0.2s ease; }
-      @media (max-width: 640px) {
-        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .two-col { grid-template-columns: 1fr !important; }
-        .pad-page { padding: 12px 10px !important; }
-        .hide-mobile { display: none !important; }
-      }
+      *{box-sizing:border-box;margin:0;padding:0;}
+      body{background:#0A0C10;color:#EEEDF0;font-family:Inter,-apple-system,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+      .hn{font-family:Syne,sans-serif;letter-spacing:-0.02em;}
+      .mono{font-family:JetBrains Mono,monospace;font-size:0.93em;}
+      .row-hover:hover{background:#23252F !important;transition:background 0.12s;}
+      ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#252830;border-radius:4px;}
+      input:focus,select:focus{outline:none;border-color:#F0A03C !important;box-shadow:0 0 0 3px rgba(240,160,60,0.09);}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+      .fade-in{animation:fadeIn 0.2s ease;}
+      @media(max-width:640px){.stat-grid{grid-template-columns:repeat(2,1fr) !important;}.two-col{grid-template-columns:1fr !important;}.pad-page{padding:12px 10px !important;}.hide-mobile{display:none !important;}}
     `}</style>
 
       {/* Viewport meta injected for mobile zoom fix */}
@@ -1281,7 +1254,7 @@ export default function App() {
         <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
           <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
             <span className="hn" style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", flexShrink: 0 }}>
-              Fin<span style={{ color: "#F0A03C" }}>Track</span> <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, letterSpacing: "0.05em" }}>IE</span>
+              Fin<span style={{ color: T.accent }}>Track</span> <span style={{ color: T.textDim, fontWeight: 600, fontSize: 13 }}>IE</span>
             </span>
             {nextPayday && payroll && (
               <div style={{ textAlign: "right", minWidth: 0 }}>
@@ -1296,7 +1269,7 @@ export default function App() {
               const active = tab === t.id;
               return (
                 <button key={t.id} className="tab-pill" onClick={() => setTab(t.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? "#F0A03C" : "transparent", color: active ? "#0A0C10" : "#8B8DA0", fontFamily: "inherit", flexShrink: 0, borderRadius: 8, transition: "all 0.15s" }}>
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? T.accent : "transparent", color: active ? "#0E0E10" : T.textMid, fontFamily: "inherit", flexShrink: 0 }}>
                   <Icon size={11} />
                   {t.label}
                   {t.id === "transactions" && importQueue.length > 0 && (
@@ -1594,7 +1567,7 @@ export default function App() {
                     debts={debts}
                     committed={committed}
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
-                    onCategory={cat => updateTxCategory(tx.id, cat)}
+                    onCategory={(cat, overrideOnly) => updateTxCategory(tx.id, cat, overrideOnly)}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -1744,7 +1717,7 @@ export default function App() {
                           <Badge color="dim">{rec?.l}</Badge>
                           <span style={{ fontSize: 11, color: T.textDim }}>{ce.group}</span>
                         </div>
-                        {/* Category picker inline */}
+                        {/* Category picker - always editable, clears with x button */}
                         <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
                           <CategoryCombo
                             value={ce.category || ""}
@@ -1755,32 +1728,40 @@ export default function App() {
                               return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
                             })}
                             onChange={cat => {
-                              // Update committed expense category
                               setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: cat } : x));
-                              // Auto-apply to all matching transactions
-                              if (cat) {
-                                const kw = ce.name.toLowerCase().trim();
-                                setTransactions(prev => prev.map(tx => {
-                                  if (tx.isCredit) return tx;
-                                  const desc = (tx.description || "").toLowerCase().trim();
-                                  if (desc === kw || desc.includes(kw) || kw.includes(desc.substring(0, Math.min(desc.length, 20)))) {
-                                    return { ...tx, category: cat };
-                                  }
-                                  return tx;
-                                }));
-                                // Also create/update auto-categorisation rule
-                                setRules(prev => {
-                                  const existing = prev.find(r => r.category === cat && r.keywords?.some(k => kw.includes(k) || k.includes(kw)));
-                                  if (existing) return prev;
-                                  const shortKw = kw.split(" ").slice(0, 3).join(" ");
-                                  return [...prev.filter(r => !(r.keywords?.includes(shortKw))), { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
-                                });
-                              }
+                              if (!cat) return;
+                              const normName = normaliseDesc(ce.name);
+                              setTransactions(prev => prev.map(tx => {
+                                if (tx.isCredit) return tx;
+                                const normDesc = normaliseDesc(tx.description || "");
+                                const isMatch = normDesc === normName || normDesc.includes(normName) || normName.includes(normDesc) || (normName.length > 5 && normDesc.includes(normName.substring(0, 10)));
+                                return isMatch ? { ...tx, category: cat } : tx;
+                              }));
+                              setRules(prev => {
+                                const kw = normName.split(" ").filter(w => w.length > 3).slice(0, 2).join(" ");
+                                if (!kw) return prev;
+                                return [...prev.filter(r => !r.keywords?.includes(kw)), { id: Date.now().toString(), description: ce.name, keywords: [kw], category: cat }];
+                              });
                             }}
                             style={{ fontSize: 12 }}
                           />
                           {ce.category && <Badge color="green">{ce.category}</Badge>}
+                          {ce.category && (
+                            <button title="Clear category" onClick={() => setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: "" } : x))}
+                              style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", fontSize: 11, padding: "2px 6px" }}>--</button>
+                          )}
                         </div>
+                        {/* Debt link for financial commitment categories */}
+                        {(ce.category === "Loan Repayment" || ce.category === "Credit Card Payment" || ce.category === "BNPL Payment" || ce.category === "Credit Card Min Payment" || ce.category === "Hire Purchase Drawdown") && (
+                          <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 8 }}>
+                            <span style={{ fontSize: 11, color: T.textDim }}>Link to debt:</span>
+                            <select value={ce.linkedDebtId || ""} onChange={e => setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, linkedDebtId: e.target.value } : x))}
+                              style={{ ...S.input, fontSize: 11, padding: "4px 8px", width: "auto", flex: 1 }}>
+                              <option value="">-- select debt --</option>
+                              {debts.map(d => <option key={d.id} value={d.id}>{d.name} ({fmt(d.balance, d.currency)})</option>)}
+                            </select>
+                          </div>
+                        )}
                         {ce.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{ce.note}</div>}
                         {next && (
                           <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
@@ -2202,7 +2183,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
 
   return (
     <div style={{ ...S.card, overflow: "hidden", borderColor: T.green + "40" }}>
-      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{asset.name}</span>
@@ -2313,11 +2294,21 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
     if (!editing) setForm(f => ({ ...f, balance: debt.balance, balanceAsOf: today() }));
   }
 
-  const balance = parseFloat(form.balance) || 0;
-  const total = parseFloat(form.total) || balance;
+  const rawBalance = parseFloat(form.balance) || 0;
+  const total = parseFloat(form.total) || rawBalance;
   const rate = parseFloat(form.rate) || 0;
   const term = parseInt(form.termMonths) || 0;
   const freq = form.paymentFrequency || "monthly";
+  // BNPL: auto-calculate remaining balance from opening date if no payments recorded
+  const balance = (() => {
+    if (debt.type !== "bnpl" || !form.balanceAsOf || !term || !total) return rawBalance;
+    if ((debt.paymentHistory || []).length > 0) return rawBalance;
+    const instalment = total / term;
+    const asOf = new Date(form.balanceAsOf + "T12:00:00");
+    const now = new Date();
+    const monthsElapsed = (now.getFullYear() - asOf.getFullYear()) * 12 + (now.getMonth() - asOf.getMonth());
+    return parseFloat(Math.max(0, rawBalance - Math.max(0, monthsElapsed) * instalment).toFixed(2));
+  })();
   const pct = total > 0 ? Math.min(100, ((total - balance) / total) * 100) : 0;
 
   const periodicPayment = calcPMT(balance, rate, term, freq);
@@ -2387,7 +2378,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
   return (
     <div style={{ ...S.card, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{debt.name}</span>
@@ -2692,6 +2683,11 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
           onChange={cat => onCategory(cat)}
           placeholder="Type or select category..."
         />
+        {/* Override rule for this tx only */}
+        {tx.ruleMatched && !tx.categoryOverride && (
+          <button title="Applied by rule. Click to change only this transaction." onClick={() => onCategory(tx.category, true)}
+            style={{ background: T.accentSoft, color: T.accent, border: "1px solid rgba(240,160,60,0.3)", borderRadius: 5, padding: "2px 6px", fontSize: 9, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>rule</button>
+        )}
         {tx.debtAllocated && <Badge color="purple">Debt</Badge>}
         {tx.aiSuggested && <Badge color="blue">AI</Badge>}
         {tx.isPAYE && <Badge color="green">PAYE</Badge>}
@@ -3229,7 +3225,7 @@ function DriveSync() {
       setStatus('saved'); setMsg(`Saved ${localTx} transactions`);
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     } catch(e) {
-      setStatus('error'); setMsg('Save failed');
+      tokenRef.current = null; setStatus('error'); setMsg('Session expired - tap Refresh to sign in again');
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     }
   };
@@ -3254,12 +3250,12 @@ function DriveSync() {
       }
       // Apply Drive data to localStorage
       LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
-      const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
+      const ts = new Date().toLocaleString('en-IE'); // always fresh timestamp on pull
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
       setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions - reloading`);
       setTimeout(() => window.location.reload(), 800);
     } catch(e) {
-      setStatus('error'); setMsg('Pull failed');
+      tokenRef.current = null; setStatus('error'); setMsg('Session expired - tap Refresh to sign in again');
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     }
   };
@@ -3280,7 +3276,7 @@ function DriveSync() {
       if (driveTx > 0 && localTx === 0) {
         // Drive has data, local empty - pull from Drive
         LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
-        const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
+        const ts = new Date().toLocaleString('en-IE'); // always fresh timestamp on pull
         setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
         setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions`);
         setTimeout(() => window.location.reload(), 800);
