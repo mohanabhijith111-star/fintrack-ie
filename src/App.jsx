@@ -1231,7 +1231,7 @@ export default function App() {
   // -- RENDER --------------------------------------------------------------------
 
   return (
-    <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
+    <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
       *{box-sizing:border-box;margin:0;padding:0;}
