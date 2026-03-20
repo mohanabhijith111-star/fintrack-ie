@@ -2097,7 +2097,6 @@ export default function App() {
           onDismiss={() => setLoanPrompt(null)}
         />
       )}
-    </div>
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
