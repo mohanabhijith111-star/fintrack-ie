@@ -833,6 +833,7 @@ export default function App() {
   const [recurringAlerts, setRecurringAlerts] = useState([]);
   const [loanPrompt, setLoanPrompt] = useState(null); // {tx, type: "received"|"repayment"} // detected recurring patterns
   const [splitTx, setSplitTx] = useState(null);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Computed overhead groups (built-ins + custom)
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
@@ -1337,21 +1338,10 @@ export default function App() {
 
         {/* Mobile Bottom Nav */}
         <div className="mobile-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:"#0F1117",borderTop:"1px solid #252830",padding:"4px 0",justifyContent:"space-around",alignItems:"center"}}>
-          {[
-            {id:"dashboard",icon:BarChart2,label:"Home"},
-            {id:"transactions",icon:Layers,label:"Txns"},
-            {id:"analytics",icon:TrendingDown,label:"Stats"},
-            {id:"committed",icon:Calendar,label:"Bills"},
-            {id:"debt",icon:CreditCard,label:"Debt"},
-            {id:"settings",icon:Settings,label:"More"},
-          ].map(t => { const Icon=t.icon; const active=tab===t.id; return (
-            <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}>
-              <Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span>
-            </button>
-          );})}
+          {[{id:"dashboard",icon:BarChart2,label:"Home"},{id:"transactions",icon:Layers,label:"Txns"},{id:"committed",icon:Calendar,label:"Bills"},{id:"debt",icon:CreditCard,label:"Debt"}].map(t=>{const Icon=t.icon;const active=tab===t.id;return(<button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}><Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span></button>);})}
+          <button onClick={()=>setShowMobileMenu(s=>!s)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:["accounts","analytics","goals","budgeting","planner","timeline","settings"].includes(tab)?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}><Settings size={17}/><span style={{fontSize:9}}>More</span></button>
+          {showMobileMenu&&(<div style={{position:"absolute",bottom:56,left:0,right:0,background:"#0F1117",borderTop:"1px solid #252830",padding:"8px 0",display:"flex",flexWrap:"wrap",zIndex:201}}>{[{id:"accounts",icon:CreditCard,label:"Accounts"},{id:"analytics",icon:TrendingDown,label:"Analytics"},{id:"goals",icon:Target,label:"Goals"},{id:"budgeting",icon:Target,label:"Budgeting"},{id:"planner",icon:TrendingUp,label:"Planner"},{id:"timeline",icon:Clock,label:"Timeline"},{id:"settings",icon:Settings,label:"Settings"}].map(t=>{const Icon=t.icon;const active=tab===t.id;return(<button key={t.id} onClick={()=>{setTab(t.id);setShowMobileMenu(false);}} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"10px 0",border:"none",background:active?"rgba(240,160,60,0.09)":"none",cursor:"pointer",color:active?"#F0A03C":"#8B8DA0",fontFamily:"inherit",flex:"1 0 25%"}}><Icon size={17}/><span style={{fontSize:9,marginTop:2}}>{t.label}</span></button>);})}</div>)}
         </div>
-
-        {/* Main Content */}
         <main className="main-content" style={{paddingBottom:70}}>
           <div style={{padding:"14px 24px 10px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:4,position:"sticky",top:0,background:"#0A0C10",zIndex:50}}>
             <div>
@@ -1370,7 +1360,7 @@ export default function App() {
         {tab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* KPI row - 2 cols on mobile, auto-fit on desktop */}
-            <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
+            <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
               <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
                 detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
@@ -1798,7 +1788,7 @@ export default function App() {
                           <span style={{ fontSize: 11, color: T.textDim }}>{ce.group}</span>
                         </div>
                         {/* Category picker - always editable, clears with x button */}
-                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6 }}>
+                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
                           <CategoryCombo
                             value={ce.category || ""}
                             overheadGroups={OVERHEAD_GROUPS}
@@ -3825,7 +3815,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
       {/* View selector */}
-      <div style={{ display: 'flex', gap: 6, overflowX: 'auto', paddingBottom: 2 }}>
+      <div style={{ display: 'flex', gap: 4, overflowX: 'auto', paddingBottom: 2, flexWrap: 'wrap' }}>
         {views.map(v => (
           <button key={v.id} onClick={() => { setView(v.id); setSelectedMonth(null); setSelectedCat(null); }}
             style={{ padding: '7px 14px', borderRadius: 8, border: `1px solid ${view === v.id ? T.accent : T.border}`, background: view === v.id ? T.accent + '20' : 'transparent', color: view === v.id ? T.accent : T.textMid, fontSize: 12, fontWeight: view === v.id ? 700 : 400, cursor: 'pointer', fontFamily: 'inherit', whiteSpace: 'nowrap', flexShrink: 0 }}>
