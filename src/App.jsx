@@ -4478,5 +4478,6 @@ function DebtPlannerTab({ debts, setDebts }) {
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
         - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
       </div>
+    </div>
   );
 }
