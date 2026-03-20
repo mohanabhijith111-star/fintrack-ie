@@ -1353,7 +1353,7 @@ export default function App() {
 
         {/* Main Content */}
         <main className="main-content" style={{paddingBottom:70}}>
-          <div style={{padding:"14px 24px 10px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between",position:"sticky",top:0,background:"#0A0C10",zIndex:50}}>
+          <div style={{padding:"14px 24px 10px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:4,position:"sticky",top:0,background:"#0A0C10",zIndex:50}}>
             <div>
               <h1 className="hn" style={{fontSize:21,fontWeight:800,color:"#EEEDF0"}}>
                 {TABS.find(t=>t.id===tab)?TABS.find(t=>t.id===tab).label:"Overview"}
@@ -1898,7 +1898,7 @@ export default function App() {
               const totalLiabilities = debts.reduce((s, d) => s + (parseFloat(d.balance) || 0), 0);
               const netPosition = totalAssets - totalLiabilities;
               return (
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 12 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 12 }}>
                   <StatCard label="Total Assets" value={fmt(totalAssets)} color="green" />
                   <StatCard label="Total Liabilities" value={fmt(totalLiabilities)} color="red" />
                   <StatCard label="Net Position" value={fmt(netPosition)} color={netPosition >= 0 ? "green" : "red"} />
@@ -2616,7 +2616,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
         {linkedAsset && (
           <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.19)" }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.green, marginBottom: 4 }}>Linked Asset: {linkedAsset.name}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 8 }}>
               <div>
                 <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.07em" }}>Shares Balance</div>
                 <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{fmt(parseFloat(linkedAsset.balance), linkedAsset.currency)}</div>
@@ -2641,7 +2641,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
             <div style={{ fontWeight: 600, color: T.green, marginBottom: 4 }}>
               Payment of {fmt(lastPayment.totalPayment, debt.currency)} applied on {dateStr(lastPayment.date)}
             </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 6 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
               <div><span style={{ color: T.textDim }}>Principal: </span><span style={{ color: T.text, fontWeight: 600 }}>{fmt(lastPayment.principal, debt.currency)}</span></div>
               <div><span style={{ color: T.textDim }}>Interest: </span><span style={{ color: T.red, fontWeight: 600 }}>{fmt(lastPayment.interest, debt.currency)}</span></div>
               <div><span style={{ color: T.textDim }}>Balance: </span><span style={{ color: T.text, fontWeight: 600 }}>{fmt(lastPayment.newBalance, debt.currency)}</span></div>
