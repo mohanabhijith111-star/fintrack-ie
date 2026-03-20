@@ -2185,8 +2185,6 @@ export default function App() {
         />
       )}
     </div>
-  );
-}
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
