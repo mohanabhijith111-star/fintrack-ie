@@ -1,34 +1,17 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 
-// --- DESIGN TOKENS -----------------------------------------------------------
+// --- DESIGN TOKENS v3 -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
 const T = {
-  bg: "#0A0C10",
-  sidebar: "#0F1117",
-  surface: "#161820",
-  surfaceHigh: "#1E2028",
-  surfaceHover: "#23252F",
-  border: "#252830",
-  borderHover: "#32364A",
-  text: "#EEEDF0",
-  textMid: "#8B8DA0",
-  textDim: "#454760",
-  accent: "#F0A03C",
-  accentDim: "#6B4518",
-  accentSoft: "rgba(240,160,60,0.09)",
-  green: "#3DB87A",
-  greenDim: "#143D28",
-  greenSoft: "rgba(61,184,122,0.08)",
-  red: "#E05C5C",
-  redDim: "#3D1818",
-  redSoft: "rgba(224,92,92,0.08)",
-  blue: "#4A8FD4",
-  blueDim: "#142640",
-  blueSoft: "rgba(74,143,212,0.08)",
-  purple: "#8B6FD4",
-  purpleDim: "#241840",
-  purpleSoft: "rgba(139,111,212,0.08)",
+  bg:"#0A0C10",sidebar:"#0F1117",surface:"#161820",surfaceHigh:"#1E2028",
+  surfaceHover:"#23252F",border:"#252830",borderHover:"#32364A",
+  text:"#EEEDF0",textMid:"#8B8DA0",textDim:"#454760",
+  accent:"#F0A03C",accentDim:"#6B4518",accentSoft:"rgba(240,160,60,0.09)",
+  green:"#3DB87A",greenDim:"#143D28",greenSoft:"rgba(61,184,122,0.08)",
+  red:"#E05C5C",redDim:"#3D1818",redSoft:"rgba(224,92,92,0.08)",
+  blue:"#4A8FD4",blueDim:"#142640",blueSoft:"rgba(74,143,212,0.08)",
+  purple:"#8B6FD4",purpleDim:"#241840",purpleSoft:"rgba(139,111,212,0.08)",
 };
 
 // --- CONSTANTS ----------------------------------------------------------------
@@ -661,18 +644,15 @@ function applyRules(description, rules) {
 
 // --- UI PRIMITIVES ------------------------------------------------------------
 const S = {
-  card: { background: "#161820", border: "1px solid #252830", borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
-  cardHigh: { background: "#1E2028", border: "1px solid #252830", borderRadius: 14 },
-  input: {
-    background: "#1E2028", border: "1px solid #252830", borderRadius: 8,
-    color: "#EEEDF0", fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
-  },
-  label: { fontSize: 11, color: "#8B8DA0", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
-  btn: {
-    primary: { background: "#F0A03C", color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
-    ghost: { background: "transparent", color: "#8B8DA0", border: "1px solid #252830", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
-    danger: { background: "#3D1818", color: "#E05C5C", border: "1px solid rgba(224,92,92,0.25)", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
-    success: { background: "#143D28", color: "#3DB87A", border: "1px solid rgba(61,184,122,0.25)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+  card:{background:"#161820",border:"1px solid #252830",borderRadius:14,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"},
+  cardHigh:{background:"#1E2028",border:"1px solid #252830",borderRadius:14},
+  input:{background:"#1E2028",border:"1px solid #252830",borderRadius:8,color:"#EEEDF0",fontFamily:"inherit",fontSize:13,padding:"9px 12px",width:"100%",outline:"none"},
+  label:{fontSize:11,color:"#8B8DA0",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600,display:"block",marginBottom:5},
+  btn:{
+    primary:{background:"#F0A03C",color:"#0A0C10",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+    ghost:{background:"transparent",color:"#8B8DA0",border:"1px solid #252830",borderRadius:8,padding:"8px 14px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+    danger:{background:"#3D1818",color:"#E05C5C",border:"1px solid rgba(224,92,92,0.25)",borderRadius:8,padding:"7px 12px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4},
+    success:{background:"#143D28",color:"#3DB87A",border:"1px solid rgba(61,184,122,0.25)",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
   },
 };
 
@@ -1251,68 +1231,108 @@ export default function App() {
   // -- RENDER --------------------------------------------------------------------
 
   return (
-    <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
+    <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      body { background: #0A0C10; color: #EEEDF0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
-      .hn { font-family: Syne, sans-serif; letter-spacing: -0.02em; }
-      .mono { font-family: JetBrains Mono, monospace; font-size: 0.93em; }
-      .row-hover:hover { background: #23252F !important; transition: background 0.12s; }
-      ::-webkit-scrollbar { width: 4px; height: 4px; }
-      ::-webkit-scrollbar-track { background: transparent; }
-      ::-webkit-scrollbar-thumb { background: #252830; border-radius: 4px; }
-      input:focus, select:focus { outline: none; border-color: #F0A03C !important; box-shadow: 0 0 0 3px rgba(240,160,60,0.09); }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-      .fade-in { animation: fadeIn 0.2s ease; }
-      @media (max-width: 640px) {
-        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .two-col { grid-template-columns: 1fr !important; }
-        .pad-page { padding: 12px 10px !important; }
-        .hide-mobile { display: none !important; }
+      *{box-sizing:border-box;margin:0;padding:0;}
+      html,body,#root{height:100%;}
+      body{background:#0A0C10;color:#EEEDF0;font-family:Inter,-apple-system,BlinkMacSystemFont,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
+      .hn{font-family:Syne,sans-serif;letter-spacing:-0.02em;}
+      .mono{font-family:JetBrains Mono,monospace;font-size:0.93em;}
+      .app-shell{display:flex;height:100vh;overflow:hidden;}
+      .sidebar{width:216px;min-width:216px;background:#0F1117;border-right:1px solid #252830;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
+      .main-content{flex:1;overflow-y:auto;overflow-x:hidden;background:#0A0C10;}
+      .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;margin:1px 8px;color:#8B8DA0;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-family:inherit;white-space:nowrap;}
+      .nav-item:hover{background:#23252F;color:#EEEDF0;}
+      .nav-item.active{background:rgba(240,160,60,0.09);color:#F0A03C;}
+      .nav-label{font-size:9px;color:#454760;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;padding:12px 20px 4px;}
+      .row-hover:hover{background:#23252F !important;transition:background 0.12s;}
+      ::-webkit-scrollbar{width:4px;height:4px;}
+      ::-webkit-scrollbar-track{background:transparent;}
+      ::-webkit-scrollbar-thumb{background:#252830;border-radius:4px;}
+      input:focus,select:focus{outline:none;border-color:#F0A03C !important;box-shadow:0 0 0 3px rgba(240,160,60,0.09);}
+      @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
+      .fade-in{animation:fadeIn 0.2s ease;}
+      @media(max-width:768px){
+        .sidebar{display:none;}
+        .mobile-nav{display:flex !important;}
+        .app-shell{flex-direction:column;}
+        .main-content{height:calc(100vh - 56px);overflow-y:auto;}
+        .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
+        .two-col{grid-template-columns:1fr !important;}
+        .hide-mobile{display:none !important;}
       }
+      @media(min-width:769px){.mobile-nav{display:none !important;}}
     `}</style>
 
       {/* Viewport meta injected for mobile zoom fix */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
-      {/* -- TOP BAR -- */}
-      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
-        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
-          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
-            <span className="hn" style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", flexShrink: 0 }}>
-              Fin<span style={{ color: "#F0A03C" }}>Track</span> <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, letterSpacing: "0.05em" }}>IE</span>
-            </span>
+      {/* SIDEBAR LAYOUT */}
+      <div className="app-shell">
+        <aside className="sidebar">
+          <div style={{padding:"18px 16px 14px",borderBottom:"1px solid #252830"}}>
+            <div className="hn" style={{fontSize:20,fontWeight:800,color:"#EEEDF0"}}>
+              Fin<span style={{color:"#F0A03C"}}>Track</span>
+              <span style={{color:"#454760",fontWeight:600,fontSize:11,marginLeft:4}}>IE</span>
+            </div>
             {nextPayday && payroll && (
-              <div style={{ textAlign: "right", minWidth: 0 }}>
-                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Next pay</div>
-                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} - {fmt(payroll.perNet)}</div>
+              <div style={{marginTop:10,padding:"8px 10px",background:"rgba(240,160,60,0.09)",borderRadius:8,border:"1px solid rgba(240,160,60,0.2)"}}>
+                <div style={{fontSize:9,color:"#F0A03C",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600}}>Next Payday</div>
+                <div style={{fontSize:12,color:"#EEEDF0",marginTop:2}}>{dateStr(nextPayday)}</div>
+                <div className="mono" style={{fontSize:13,fontWeight:600,color:"#F0A03C"}}>{fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
-          <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 6 }}>
-            {TABS.map(t => {
+          <nav style={{padding:"8px 0",flex:1}}>
+            <div className="nav-label">Main</div>
+            {[{id:"dashboard",label:"Overview",icon:BarChart2},{id:"transactions",label:"Transactions",icon:Layers},{id:"accounts",label:"Accounts",icon:CreditCard}].map(t => {
               const Icon = t.icon;
-              const active = tab === t.id;
-              return (
-                <button key={t.id} className="tab-pill" onClick={() => setTab(t.id)}
-                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? "#F0A03C" : "transparent", color: active ? "#0A0C10" : "#8B8DA0", fontFamily: "inherit", flexShrink: 0, borderRadius: 8, transition: "all 0.15s" }}>
-                  <Icon size={11} />
-                  {t.label}
-                  {t.id === "transactions" && importQueue.length > 0 && (
-                    <span style={{ background: T.red, color: "#fff", borderRadius: 8, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
-                  )}
-                </button>
-              );
+              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}>
+                <Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span>
+                {t.id==="transactions"&&importQueue.length>0&&<span style={{marginLeft:"auto",background:"#E05C5C",color:"#fff",borderRadius:10,padding:"1px 6px",fontSize:9,fontWeight:700}}>{importQueue.length}</span>}
+              </button>;
             })}
+            <div className="nav-label" style={{marginTop:8}}>Planning</div>
+            {[{id:"budgeting",label:"Budgeting",icon:Target},{id:"committed",label:"Committed",icon:Calendar},{id:"goals",label:"Goals",icon:Target}].map(t => {
+              const Icon = t.icon;
+              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
+            })}
+            <div className="nav-label" style={{marginTop:8}}>Insights</div>
+            {[{id:"analytics",label:"Analytics",icon:TrendingDown},{id:"timeline",label:"Timeline",icon:Clock}].map(t => {
+              const Icon = t.icon;
+              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
+            })}
+            <div className="nav-label" style={{marginTop:8}}>Debt</div>
+            {[{id:"debt",label:"Debt Tracker",icon:CreditCard},{id:"planner",label:"Planner",icon:TrendingUp}].map(t => {
+              const Icon = t.icon;
+              return <button key={t.id} className={"nav-item"+(tab===t.id?" active":"")} onClick={()=>setTab(t.id)}><Icon size={14} style={{flexShrink:0,opacity:0.8}}/><span>{t.label}</span></button>;
+            })}
+          </nav>
+          <div style={{padding:"10px 8px",borderTop:"1px solid #252830"}}>
+            <DriveSync/>
+            <button className={"nav-item"+(tab==="settings"?" active":"")} onClick={()=>setTab("settings")} style={{marginTop:4}}>
+              <Settings size={14} style={{flexShrink:0,opacity:0.8}}/><span>Settings</span>
+            </button>
           </div>
-          <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 6 }}>
-            <DriveSync />
-          </div>
+        </aside>
+        <div className="mobile-nav" style={{position:"fixed",bottom:0,left:0,right:0,zIndex:200,background:"#0F1117",borderTop:"1px solid #252830",padding:"4px 0",justifyContent:"space-around",alignItems:"center"}}>
+          {[{id:"dashboard",icon:BarChart2,label:"Home"},{id:"transactions",icon:Layers,label:"Txns"},{id:"analytics",icon:TrendingDown,label:"Stats"},{id:"committed",icon:Calendar,label:"Bills"},{id:"debt",icon:CreditCard,label:"Debt"},{id:"settings",icon:Settings,label:"More"}].map(t=>{
+            const Icon=t.icon;const active=tab===t.id;
+            return <button key={t.id} onClick={()=>setTab(t.id)} style={{display:"flex",flexDirection:"column",alignItems:"center",gap:2,padding:"6px 8px",border:"none",background:"none",cursor:"pointer",color:active?"#F0A03C":"#454760",fontFamily:"inherit",minWidth:44}}>
+              <Icon size={17}/><span style={{fontSize:9,fontWeight:active?700:400}}>{t.label}</span>
+            </button>;
+          })}
         </div>
-      </div>
-
-      <div className="pad-page" style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
+        <main className="main-content" style={{paddingBottom:70}}>
+          <div style={{padding:"16px 24px 12px",borderBottom:"1px solid #252830",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+            <div>
+              <h1 className="hn" style={{fontSize:22,fontWeight:800,color:"#EEEDF0"}}>{TABS.find(t=>t.id===tab)?.label||"Overview"}</h1>
+              <div style={{fontSize:11,color:"#454760",marginTop:2}}>{new Date().toLocaleDateString("en-IE",{weekday:"long",year:"numeric",month:"long",day:"numeric"})}</div>
+            </div>
+            <div className="hide-mobile"><DriveSync/></div>
+          </div>
+          <div style={{padding:"20px 24px",display:"flex",flexDirection:"column",gap:16}}>
 
         {/* -- DASHBOARD ---------------------------------------------------------- */}
         {tab === "dashboard" && (
@@ -4127,6 +4147,8 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
         - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+          </div>
+        </main>
       </div>
     </div>
   );
