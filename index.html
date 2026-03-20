@@ -2,9 +2,9 @@
 <html lang="en">
   <head>
     <meta charset="UTF-8" />
-    <link rel="icon" type="image/svg+xml" href="/fintrack-ie/favicon.svg" />
-    <link rel="apple-touch-icon" href="/fintrack-ie/icon-192.png" />
-    <link rel="manifest" href="/fintrack-ie/manifest.json" />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <link rel="apple-touch-icon" href="/icon-192.png" />
+    <link rel="manifest" href="/manifest.json" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <meta name="theme-color" content="#C8965A" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
@@ -14,12 +14,12 @@
   </head>
   <body>
     <div id="root"></div>
-    <script type="module" src="/fintrack-ie/src/main.jsx"></script>
+    <script type="module" src="/src/main.jsx"></script>
     <script>
       // Register service worker for PWA
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/fintrack-ie/sw.js').catch(() => {});
+          navigator.serviceWorker.register('/sw.js').catch(() => {});
         });
       }
     </script>
