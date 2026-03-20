@@ -1,11 +1,9 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 
-// ─── DESIGN SYSTEM v2 ────────────────────────────────────────────────────────
-// Inspired by Monarch Money: clean sidebar, refined dark theme, modern typography
-// Palette: deep navy base, ivory text, vibrant amber accent, clean greens/reds
+// --- DESIGN TOKENS -----------------------------------------------------------
+// Palette: warm slate / ivory / amber accent - refined & editorial
 const T = {
-  // Base
   bg: "#0A0C10",
   sidebar: "#0F1117",
   surface: "#161820",
@@ -13,32 +11,29 @@ const T = {
   surfaceHover: "#23252F",
   border: "#252830",
   borderHover: "#32364A",
-  // Text
   text: "#EEEDF0",
   textMid: "#8B8DA0",
   textDim: "#454760",
-  // Brand accent — vibrant amber
   accent: "#F0A03C",
   accentDim: "#6B4518",
-  accentSoft: "#F0A03C18",
-  // Semantic
+  accentSoft: "rgba(240,160,60,0.09)",
   green: "#3DB87A",
   greenDim: "#143D28",
-  greenSoft: "#3DB87A15",
+  greenSoft: "rgba(61,184,122,0.08)",
   red: "#E05C5C",
   redDim: "#3D1818",
-  redSoft: "#E05C5C15",
+  redSoft: "rgba(224,92,92,0.08)",
   blue: "#4A8FD4",
   blueDim: "#142640",
-  blueSoft: "#4A8FD415",
+  blueSoft: "rgba(74,143,212,0.08)",
   purple: "#8B6FD4",
   purpleDim: "#241840",
-  purpleSoft: "#8B6FD415",
+  purpleSoft: "rgba(139,111,212,0.08)",
   teal: "#2EC4B6",
   tealDim: "#0D3D39",
 };
 
-// ─── CONSTANTS ────────────────────────────────────────────────────────────────
+// --- CONSTANTS ----------------------------------------------------------------
 const CURRENCIES = ["EUR", "INR", "USD", "GBP"];
 const getCurrencySymbol = (c) => ({ EUR: "\u20AC", INR: "\u20B9", USD: "$", GBP: "\u00A3" }[c] || c);
 const fmt = (n, c = "EUR") => `${getCurrencySymbol(c)}${Number(n || 0).toLocaleString("en-IE", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
@@ -47,11 +42,11 @@ const dateStr = (d) => { try { return new Date(d).toLocaleDateString("en-IE", { 
 const today = () => new Date().toISOString().split("T")[0];
 const toISO = (d) => { try { return new Date(d).toISOString().split("T")[0]; } catch { return today(); } };
 
-// ─── OVERHEAD CATEGORIES ─────────────────────────────────────────────────────
+// --- OVERHEAD CATEGORIES -----------------------------------------------------
 const BUILTIN_OVERHEAD_GROUPS = {
-  // ── P&L: Income ──────────────────────────────────────────────────────────
-  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Dividend", "Interest Received", "Social Welfare", "Refund", "Cashback", "Reimbursement", "Other Income"],
-  // ── P&L: Expenses ────────────────────────────────────────────────────────
+  // -- P&L: Income ----------------------------------------------------------
+  "Income": ["Salary", "Freelance / Contract", "Rental Income", "Investment Returns", "Social Welfare", "Other Income"],
+  // -- P&L: Expenses --------------------------------------------------------
   "Housing": ["Rent", "Mortgage", "Home Insurance", "Management Fee", "Repairs & Maintenance"],
   "Motor": ["Car Loan / HP", "Motor Insurance", "Motor Tax", "Fuel", "NCT / Service", "Toll / E-Flow", "Parking"],
   "Health": ["Health Insurance", "Dental", "Pharmacy", "GP / Specialist", "Gym"],
@@ -62,42 +57,42 @@ const BUILTIN_OVERHEAD_GROUPS = {
   "Personal": ["Clothing", "Personal Care", "Entertainment", "Gifts", "Holidays"],
   "Work": ["Work Expenses", "Training / Education", "Professional Membership"],
   "Tax": ["Income Tax Payment", "USC", "PRSI", "LPT"],
-  // ── Balance Sheet: Assets ─────────────────────────────────────────────────
+  // -- Balance Sheet: Assets -------------------------------------------------
   "Assets": [
-    "Property Purchase",      // Capital — increases asset
-    "Vehicle Purchase",       // Capital — increases asset
-    "Equipment Purchase",     // Capital — increases asset
-    "Investment Purchase",    // Capital — increases asset
-    "Savings Deposit",        // Moves cash to savings — asset
+    "Property Purchase",      // Capital - increases asset
+    "Vehicle Purchase",       // Capital - increases asset
+    "Equipment Purchase",     // Capital - increases asset
+    "Investment Purchase",    // Capital - increases asset
+    "Savings Deposit",        // Moves cash to savings - asset
     "Asset Sale",             // Reduces asset, receipt of cash
     "Capital Receipt",        // Other capital inflow
   ],
-  // ── Balance Sheet: Liabilities ────────────────────────────────────────────
+  // -- Balance Sheet: Liabilities --------------------------------------------
   "Liabilities": [
-    "Loan Received",          // Money in — creates a liability (not income)
-    "Loan Repayment",         // Money out — reduces liability (not expense)
+    "Loan Received",          // Money in - creates a liability (not income)
+    "Loan Repayment",         // Money out - reduces liability (not expense)
     "Credit Card Payment",    // Reduces credit card liability
-    "Mortgage Drawdown",      // Money in — creates mortgage liability
-    "Hire Purchase Drawdown", // Money in — creates HP liability
-    "Intercompany Transfer",  // Internal transfer — no P&L impact
+    "Mortgage Drawdown",      // Money in - creates mortgage liability
+    "Hire Purchase Drawdown", // Money in - creates HP liability
+    "Intercompany Transfer",  // Internal transfer - no P&L impact
     "Deposit Received",       // Liability until returned
     "Deposit Refunded",       // Reduces liability
   ],
-  // ── Other ─────────────────────────────────────────────────────────────────
+  // -- Other -----------------------------------------------------------------
   "Financial": ["Credit Card Min Payment", "BNPL Payment", "Savings Transfer", "AVC / Pension"],
   "Other": ["Bank Charges", "ATM / Cash", "Internal Transfer", "Unknown"],
 };
 
-// Accounting type per category — drives correct P&L vs Balance Sheet treatment
+// Accounting type per category - drives correct P&L vs Balance Sheet treatment
 const ACCOUNTING_TYPE_MAP = {
-  // Income → P&L credit
+  // Income - P&L credit
   "Salary": "income", "Freelance / Contract": "income", "Rental Income": "income",
   "Investment Returns": "income", "Social Welfare": "income", "Other Income": "income",
   "Capital Receipt": "income",
-  // Assets → Balance Sheet debit (increases asset)
+  // Assets - Balance Sheet debit (increases asset)
   "Property Purchase": "asset", "Vehicle Purchase": "asset", "Equipment Purchase": "asset",
   "Investment Purchase": "asset", "Savings Deposit": "asset", "Asset Sale": "asset",
-  // Liabilities → Balance Sheet credit (increases liability) or reduces it
+  // Liabilities - Balance Sheet credit (increases liability) or reduces it
   "Loan Received": "liability", "Mortgage Drawdown": "liability",
   "Hire Purchase Drawdown": "liability", "Deposit Received": "liability",
   "Loan Repayment": "liability_reduction", "Credit Card Payment": "liability_reduction",
@@ -105,9 +100,9 @@ const ACCOUNTING_TYPE_MAP = {
   "Deposit Refunded": "liability_reduction", "Intercompany Transfer": "transfer",
   "Savings Transfer": "transfer", "Internal Transfer": "transfer",
 };
-// Liability categories that mean "loan received" — should link to debt tracker
+// Liability categories that mean "loan received" - should link to debt tracker
 const LOAN_RECEIVED_CATS = new Set(["Loan Received", "Mortgage Drawdown", "Hire Purchase Drawdown"]);
-// Liability reduction categories — should reduce debt balance
+// Liability reduction categories - should reduce debt balance
 const LOAN_REPAYMENT_CATS = new Set(["Loan Repayment", "Credit Card Payment", "Credit Card Min Payment", "BNPL Payment"]);
 
 function getAccountingType(category) {
@@ -126,7 +121,7 @@ function buildOverheadGroups(customOverheads = []) {
   return merged;
 }
 
-// Nature: revenue vs capital — kept for P&L split but accounting type takes precedence
+// Nature: revenue vs capital - kept for P&L split but accounting type takes precedence
 const CAPITAL_CATEGORIES = new Set([
   "Property Purchase", "Vehicle Purchase", "Equipment Purchase", "Investment Purchase",
   "Capital Receipt", "Asset Sale", "Investment Returns",
@@ -202,10 +197,8 @@ function detectRecurring(transactions) {
 }
 
 const INCOME_CATS = new Set(BUILTIN_OVERHEAD_GROUPS["Income"]);
-const REFUND_CATS = new Set(["Refund", "Cashback", "Reimbursement"]);
-const INVESTMENT_RETURN_CATS = new Set(["Investment Returns", "Dividend", "Interest Received"]);
 
-// ─── IRISH BANK HOLIDAYS 2026 ─────────────────────────────────────────────────
+// --- IRISH BANK HOLIDAYS 2026 -------------------------------------------------
 const IE_BANK_HOLIDAYS = new Set(["2026-01-01","2026-02-02","2026-03-17","2026-04-03","2026-04-06","2026-05-04","2026-06-01","2026-08-03","2026-10-26","2026-12-25","2026-12-26"]);
 function nextBankDay(ds) {
   let d = new Date(ds + "T12:00:00");
@@ -215,7 +208,7 @@ function nextBankDay(ds) {
   return d.toISOString().split("T")[0];
 }
 
-// ─── PAY CALCULATIONS ─────────────────────────────────────────────────────────
+// --- PAY CALCULATIONS ---------------------------------------------------------
 const PAY_FREQS = { weekly: 52, fortnightly: 26, monthly: 12 };
 const DEFAULT_CREDITS = {
   single:   { personalCredit: 2000, employeeCredit: 2000 },
@@ -281,7 +274,7 @@ function getPaydays(firstDate, freq, count = 13) {
   return dates;
 }
 
-// ─── COMMITTED EXPENSE TYPES ──────────────────────────────────────────────────
+// --- COMMITTED EXPENSE TYPES --------------------------------------------------
 const RECURRENCES = [
   { v: "weekly", l: "Weekly", ppy: 52 },
   { v: "fortnightly", l: "Fortnightly", ppy: 26 },
@@ -345,7 +338,7 @@ function projectDates(start, rec, count = 12) {
   return dates;
 }
 
-// ─── EXCEL PARSER (SheetJS) ───────────────────────────────────────────────────
+// --- EXCEL PARSER (SheetJS) ---------------------------------------------------
 async function parseXLSXToTransactions(file) {
   // Dynamically load SheetJS from CDN
   if (!window.XLSX) {
@@ -370,7 +363,7 @@ async function parseXLSXToTransactions(file) {
   const header = rows[0].map(h => (h || "").toString().trim());
   const cols = header.map(h => h.toLowerCase());
 
-  // Find columns - handle PTSB "Money in (€)" / "Money out (€)" style
+  // Find columns - handle PTSB "Money in (-)" / "Money out (-)" style
   const findCol = (...terms) => {
     for (const t of terms) {
       const i = cols.findIndex(c => c === t || c.includes(t));
@@ -487,7 +480,7 @@ function parseCSVToTransactions(text) {
   const headerFields = splitCSVLine(lines[0]);
   const cols = headerFields.map(c => c.toLowerCase().trim());
 
-  // Exact match first, then partial — prevents "started date" stealing "date" slot
+  // Exact match first, then partial - prevents "started date" stealing "date" slot
   const findExact = (...candidates) => {
     for (const c of candidates) {
       const i = cols.findIndex(col => col === c);
@@ -520,10 +513,10 @@ function parseCSVToTransactions(text) {
     return cols.findIndex(col => col.includes("date"));
   })();
 
-  // Description — do NOT include "type" (that's transaction type, not payee)
+  // Description - do NOT include "type" (that's transaction type, not payee)
   const descIdx = find("description", "details", "narrative", "particulars", "transaction details", "payee", "merchant", "reference", "info", "memo");
 
-  // Credit / debit separate columns — handle "Money in (€)", "Credit", "Paid in" etc.
+  // Credit / debit separate columns - handle "Money in (-)", "Credit", "Paid in" etc.
   const creditIdx = (() => {
     const e = findExact("credit", "money in", "paid in", "in", "deposits");
     if (e >= 0) return e;
@@ -535,7 +528,7 @@ function parseCSVToTransactions(text) {
     return cols.findIndex(c => (c.includes("money out") || c.includes("paid out") || c.includes("debit")) && !c.includes("in"));
   })();
 
-  // Single amount column — but NOT "fee", "balance", "running balance"
+  // Single amount column - but NOT "fee", "balance", "running balance"
   const amtIdx = (() => {
     const exact = findExact("amount", "transaction amount", "value", "eur amount", "net amount");
     if (exact >= 0) return exact;
@@ -617,7 +610,7 @@ function parseCSVToTransactions(text) {
   return transactions;
 }
 
-// ─── AI CATEGORISATION ────────────────────────────────────────────────────────
+// --- AI CATEGORISATION --------------------------------------------------------
 async function categoriseTransactions(transactions, rules) {
   // Apply existing rules first
   const withRules = transactions.map(tx => {
@@ -668,21 +661,20 @@ function applyRules(description, rules) {
   return null;
 }
 
-// ─── UI PRIMITIVES ────────────────────────────────────────────────────────────
+// --- UI PRIMITIVES ------------------------------------------------------------
 const S = {
-  card: { background: T.surface, border: `1px solid ${T.border}`, borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
-  cardHigh: { background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 14 },
+  card: { background: "#161820", border: "1px solid #252830", borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
+  cardHigh: { background: "#1E2028", border: "1px solid #252830", borderRadius: 14 },
   input: {
-    background: T.surfaceHigh, border: `1px solid ${T.border}`, borderRadius: 8,
-    color: T.text, fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
-    transition: "border-color 0.15s",
+    background: "#1E2028", border: "1px solid #252830", borderRadius: 8,
+    color: "#EEEDF0", fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
   },
-  label: { fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
+  label: { fontSize: 11, color: "#8B8DA0", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
   btn: {
-    primary: { background: T.accent, color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "opacity 0.15s" },
-    ghost: { background: "transparent", color: T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6, transition: "all 0.15s" },
-    danger: { background: T.redDim, color: T.red, border: `1px solid ${T.red}40`, borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
-    success: { background: T.greenDim, color: T.green, border: `1px solid ${T.green}40`, borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    primary: { background: "#F0A03C", color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    ghost: { background: "transparent", color: "#8B8DA0", border: "1px solid #252830", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    danger: { background: "#3D1818", color: "#E05C5C", border: "1px solid rgba(224,92,92,0.25)", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
+    success: { background: "#143D28", color: "#3DB87A", border: "1px solid rgba(61,184,122,0.25)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
   },
 };
 
@@ -724,16 +716,16 @@ function Btn({ children, variant = "primary", style: extra = {}, ...props }) {
 
 function Badge({ children, color = "accent" }) {
   const colors = {
-    accent: { bg: T.accentSoft, text: T.accent, border: T.accent + "30" },
-    green: { bg: T.greenSoft, text: T.green, border: T.green + "30" },
-    red: { bg: T.redSoft, text: T.red, border: T.red + "30" },
-    blue: { bg: T.blueSoft, text: T.blue, border: T.blue + "30" },
-    dim: { bg: T.surfaceHigh, text: T.textMid, border: T.border },
-    purple: { bg: T.purpleSoft, text: T.purple, border: T.purple + "30" },
+    accent: { bg: T.accentDim + "60", text: T.accent },
+    green: { bg: T.greenDim, text: T.green },
+    red: { bg: T.redDim, text: T.red },
+    blue: { bg: T.blueDim, text: T.blue },
+    dim: { bg: T.surfaceHigh, text: T.textMid },
+    purple: { bg: T.purpleDim, text: T.purple },
   };
   const c = colors[color] || colors.dim;
   return (
-    <span style={{ background: c.bg, color: c.text, border: `1px solid ${c.border}`, borderRadius: 6, padding: "2px 8px", fontSize: 10, fontWeight: 600, letterSpacing: "0.05em", whiteSpace: "nowrap" }}>
+    <span style={{ background: c.bg, color: c.text, borderRadius: 6, padding: "2px 8px", fontSize: 11, fontWeight: 600, letterSpacing: "0.04em", whiteSpace: "nowrap" }}>
       {children}
     </span>
   );
@@ -748,30 +740,22 @@ function MiniBar({ pct, color = "accent" }) {
   );
 }
 
-function StatCard({ label, value, sub, color = "text", trend, onClick, detail, icon: Icon }) {
+function StatCard({ label, value, sub, color = "text", trend, onClick, detail }) {
   const colors = { text: T.text, green: T.green, red: T.red, accent: T.accent, dim: T.textMid };
-  const bgColors = { green: T.greenSoft, red: T.redSoft, accent: T.accentSoft, text: "transparent", dim: "transparent" };
   const [open, setOpen] = useState(false);
   const clickable = !!onClick || !!detail;
   return (
     <>
       <div onClick={() => { if (detail) setOpen(o => !o); if (onClick) onClick(); }}
-        style={{ ...S.card, padding: "18px 20px", cursor: clickable ? "pointer" : "default", position: "relative", overflow: "hidden", transition: "border-color 0.15s, transform 0.15s" }}
-        className={clickable ? "row-hover" : ""}
-        onMouseEnter={e => { if (clickable) e.currentTarget.style.transform = "translateY(-1px)"; }}
-        onMouseLeave={e => { e.currentTarget.style.transform = ""; }}>
-        {/* Subtle background tint */}
-        <div style={{ position: "absolute", top: 0, right: 0, width: 80, height: 80, background: bgColors[color] || "transparent", borderRadius: "0 14px 0 80px", opacity: 0.5 }} />
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          {Icon && <div style={{ width: 28, height: 28, borderRadius: 8, background: bgColors[color] || T.surfaceHigh, display: "flex", alignItems: "center", justifyContent: "center" }}><Icon size={14} color={colors[color] || T.textMid} /></div>}
-          <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>{label}</div>
-        </div>
-        <div className="mono" style={{ fontSize: 24, fontWeight: 700, color: colors[color] || T.text, letterSpacing: "-0.03em", lineHeight: 1 }}>{value}</div>
-        {sub && <div style={{ fontSize: 11, color: T.textDim, marginTop: 5 }}>{sub}</div>}
-        {clickable && <div style={{ position: "absolute", top: 12, right: 12, fontSize: 10, color: T.textDim, opacity: 0.6 }}>{detail && (open ? "▲" : "▼")}</div>}
+        style={{ ...S.card, padding: "16px 20px", cursor: clickable ? "pointer" : "default", position: "relative" }}
+        className={clickable ? "row-hover" : ""}>
+        <div style={{ fontSize: 11, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>{label}</div>
+        <div style={{ fontSize: 22, fontWeight: 700, color: colors[color] || T.text, fontFamily: "inherit", letterSpacing: "-0.02em" }}>{value}</div>
+        {sub && <div style={{ fontSize: 12, color: T.textDim, marginTop: 3 }}>{sub}</div>}
+        {clickable && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 10, color: T.textDim }}>{detail && (open ? "-" : "-")}</div>}
       </div>
       {open && detail && (
-        <div style={{ ...S.card, padding: "14px 16px", marginTop: -8, borderTop: `2px solid ${T.accent}`, gridColumn: "1 / -1", animation: "fadeIn 0.15s ease" }}>
+        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: `1px solid ${T.border}`, gridColumn: "1 / -1" }}>
           {detail}
         </div>
       )}
@@ -783,7 +767,7 @@ function Divider() {
   return <div style={{ borderTop: `1px solid ${T.border}`, margin: "16px 0" }} />;
 }
 
-// ─── CATEGORY COMBO ──────────────────────────────────────────────────────────
+// --- CATEGORY COMBO ----------------------------------------------------------
 // Free-text input with datalist suggestions from existing overheads.
 // Typing a new value creates it as a custom overhead automatically.
 function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeholder, style: extra = {} }) {
@@ -795,7 +779,7 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
   const prevValueRef = useRef(value);
 
   // When parent value changes externally (e.g. backfill from another row),
-  // sync the display — but only when not focused so we don't clobber active typing
+  // sync the display - but only when not focused so we don't clobber active typing
   if (prevValueRef.current !== value) {
     prevValueRef.current = value;
     if (!focused) {
@@ -847,23 +831,21 @@ function CategoryCombo({ value, onChange, overheadGroups, onNewCategory, placeho
 const TABS = [
   { id: "dashboard", label: "Overview", icon: BarChart2 },
   { id: "transactions", label: "Transactions", icon: Layers },
-  { id: "accounts", label: "Accounts", icon: CreditCard },
   { id: "budgeting", label: "Budgeting", icon: Target },
   { id: "analytics", label: "Analytics", icon: TrendingDown },
   { id: "committed", label: "Committed", icon: Calendar },
   { id: "debt", label: "Debt", icon: CreditCard },
   { id: "planner", label: "Planner", icon: TrendingUp },
-  { id: "goals", label: "Goals", icon: Target },
   { id: "timeline", label: "Timeline", icon: Clock },
   { id: "settings", label: "Settings", icon: Settings },
 ];
 
-// ─── MAIN APP ─────────────────────────────────────────────────────────────────
+// --- MAIN APP -----------------------------------------------------------------
 export default function App() {
   // Navigation
   const [tab, setTab] = useState("dashboard");
 
-  // Core data — persisted to localStorage
+  // Core data - persisted to localStorage
   const [transactions, setTransactions] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_transactions") || "[]"); } catch { return []; } });
   const [committed, setCommitted] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_committed") || "[]"); } catch { return []; } });
   const [debts, setDebts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_debts") || "[]"); } catch { return []; } });
@@ -872,12 +854,11 @@ export default function App() {
   const [customOverheads, setCustomOverheads] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_customOverheads") || "[]"); } catch { return []; } });
   const [recurringAlerts, setRecurringAlerts] = useState([]);
   const [loanPrompt, setLoanPrompt] = useState(null); // {tx, type: "received"|"repayment"} // detected recurring patterns
-  const [splitTx, setSplitTx] = useState(null); // {tx} — transaction to split across categories
 
   // Computed overhead groups (built-ins + custom)
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
   const ALL_CATEGORIES = useMemo(() => Object.entries(OVERHEAD_GROUPS).flatMap(([g, cs]) => cs.map(c => ({ group: g, label: c }))), [OVERHEAD_GROUPS]);
-  // ── Persist to localStorage on every change ─────────────────────────────────
+  // -- Persist to localStorage on every change ---------------------------------
   useEffect(() => { try { localStorage.setItem("ft_transactions", JSON.stringify(transactions)); } catch {} }, [transactions]);
   // Trigger Drive auto-save whenever key data changes
   useEffect(() => { if (typeof window._driveAutoSave === 'function') window._driveAutoSave(); }, [transactions, committed, debts, rules, customOverheads]);
@@ -891,7 +872,7 @@ export default function App() {
   const [importMsg, setImportMsg] = useState("");
   const fileRef = useRef();
 
-  // Payroll — pre-filled with mock PAYE data
+  // Payroll - pre-filled with mock PAYE data
   const [salary, setSalary] = useState(() => { try { return localStorage.getItem("ft_salary") || ""; } catch(e) { return ""; } });
   const [firstPayday, setFirstPayday] = useState(() => { try { return localStorage.getItem("ft_firstPayday") || ""; } catch(e) { return ""; } });
   const [taxProfile, setTaxProfile] = useState(() => {
@@ -1001,7 +982,7 @@ export default function App() {
     return events.sort((a, b) => a.date - b.date);
   }, [firstPayday, payroll, taxProfile.payFrequency, transactions, committed, debts]);
 
-  // ── Actions ──────────────────────────────────────────────────────────────────
+  // -- Actions ------------------------------------------------------------------
 
   function addManualTx(tx) {
     const newTx = {
@@ -1023,7 +1004,7 @@ export default function App() {
           }
           return [...prev, { id: Date.now().toString(), keywords: [kw], category: tx.category, created: today() }];
         });
-        // Single setTransactions — prepend new tx AND backfill ALL matching in one pass
+        // Single setTransactions - prepend new tx AND backfill ALL matching in one pass
         setTransactions(prev => [
           newTx,
           ...prev.map(t =>
@@ -1035,11 +1016,11 @@ export default function App() {
         return;
       }
     }
-    // No category or keyword — just prepend
+    // No category or keyword - just prepend
     setTransactions(prev => [newTx, ...prev]);
   }
 
-  function updateTxCategory(id, category, overrideOnly = false) {
+  function updateTxCategory(id, category) {
     const nature = defaultNature(category);
     const kw = (() => {
       // Get the keyword from the transaction description
@@ -1062,16 +1043,16 @@ export default function App() {
       });
     }
 
-    // Single setTransactions call — update target tx AND backfill ALL with same description
+    // Single setTransactions call - update target tx AND backfill ALL with same description
     setTransactions(prev => prev.map(tx => {
       if (tx.id === id) return { ...tx, category, nature };
       // Apply to ALL transactions with matching description (not just uncategorised)
-      // UNLESS overrideOnly is set — in that case only change this single transaction
-      if (!overrideOnly && kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature, ruleMatched: true };
+      // This ensures filtered searches categorise all matching rows at once
+      if (kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature };
       return tx;
     }));
 
-    // Liability prompts — sum ALL matching transactions (target + backfilled)
+    // Liability prompts - sum ALL matching transactions (target + backfilled)
     if (LOAN_RECEIVED_CATS.has(category) || LOAN_REPAYMENT_CATS.has(category)) {
       const targetTx = transactions.find(t => t.id === id);
       if (targetTx) {
@@ -1128,7 +1109,7 @@ export default function App() {
       const dupeCount = parsed.length - fresh.length;
 
       if (fresh.length === 0) {
-        setImportMsg("All " + parsed.length + " transactions already recorded — nothing new to import.");
+        setImportMsg("All " + parsed.length + " transactions already recorded - nothing new to import.");
         setImporting(false);
         return;
       }
@@ -1269,138 +1250,111 @@ export default function App() {
     setPaydaysAdded(true);
   }
 
-  // ── RENDER ────────────────────────────────────────────────────────────────────
+  // -- RENDER --------------------------------------------------------------------
 
   return (
-    <div style={{ fontFamily: "Inter, -apple-system, sans-serif", background: T.bg, minHeight: "100vh", color: T.text }}>
+    <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
-      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Syne:wght@600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-      * { box-sizing: border-box; margin: 0; padding: 0; }
-      html, body, #root { height: 100%; }
-      body { background: ${T.bg}; color: ${T.text}; font-family: 'Inter', -apple-system, sans-serif; font-size: 13px; line-height: 1.5; -webkit-font-smoothing: antialiased; }
-      .hn { font-family: 'Syne', sans-serif; letter-spacing: -0.02em; }
-      .mono { font-family: 'JetBrains Mono', monospace; font-size: 0.95em; }
-      .app-shell { display: flex; height: 100vh; overflow: hidden; }
-      .sidebar { width: 220px; min-width: 220px; background: ${T.sidebar}; border-right: 1px solid ${T.border}; display: flex; flex-direction: column; overflow-y: auto; overflow-x: hidden; }
-      .main-content { flex: 1; overflow-y: auto; overflow-x: hidden; background: ${T.bg}; }
-      .nav-item { display: flex; align-items: center; gap: 10px; padding: 9px 12px; border-radius: 8px; margin: 1px 8px; color: ${T.textMid}; font-size: 13px; font-weight: 500; cursor: pointer; transition: all 0.15s; white-space: nowrap; border: none; background: none; width: calc(100% - 16px); text-align: left; font-family: inherit; }
-      .nav-item:hover { background: ${T.surfaceHover}; color: ${T.text}; }
-      .nav-item.active { background: ${T.accentSoft}; color: ${T.accent}; }
-      .row-hover:hover { background: ${T.surfaceHover} !important; transition: background 0.12s; }
-      ::-webkit-scrollbar { width: 4px; height: 4px; } ::-webkit-scrollbar-track { background: transparent; } ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
-      input:focus, select:focus { outline: none; border-color: ${T.accent} !important; box-shadow: 0 0 0 3px ${T.accentSoft}; }
-      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
-      .fade-in { animation: fadeIn 0.2s ease; }
-      .stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; }
-      .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-      @media (max-width: 768px) {
-        .sidebar { display: none; }
-        .mobile-nav { display: flex !important; }
-        .app-shell { flex-direction: column; }
-        .main-content { height: calc(100vh - 56px); overflow-y: auto; }
-        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        .two-col { grid-template-columns: 1fr !important; }
-        .hide-mobile { display: none !important; }
-      }
-      @media (min-width: 769px) { .mobile-nav { display: none !important; } }
-    `}</style>
+        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        html, body { width: 100%; overflow-x: hidden; }
+        ::-webkit-scrollbar { width: 4px; height: 4px; }
+        ::-webkit-scrollbar-track { background: ${T.bg}; }
+        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
+        select option { background: ${T.surface}; color: ${T.text}; }
+        input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
+        .hn { font-family: 'Syne', sans-serif; }
+        .tab-pill:hover { background: ${T.surfaceHigh} !important; color: ${T.text} !important; }
+        .row-hover:hover { background: ${T.surfaceHigh} !important; }
+        /* Responsive two-col: stacks below 600px */
+        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        @media (max-width: 600px) {
+          .two-col { grid-template-columns: 1fr !important; }
+          .hide-mobile { display: none !important; }
+          .pad-page { padding: 14px 12px !important; }
+          .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        }
+      `}</style>
 
-      {/* Viewport meta */}
+      {/* Viewport meta injected for mobile zoom fix */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
+      {/* -- SIDEBAR LAYOUT -- */}
       <div className="app-shell">
-        {/* ── SIDEBAR (desktop) ── */}
+
+        {/* SIDEBAR desktop */}
         <aside className="sidebar">
-          {/* Logo */}
-          <div style={{ padding: "20px 16px 16px", borderBottom: `1px solid ${T.border}` }}>
-            <div className="hn" style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em" }}>
-              Fin<span style={{ color: T.accent }}>Track</span>
-              <span style={{ color: T.textDim, fontWeight: 600, fontSize: 11, marginLeft: 4 }}>IE</span>
+          <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid #252830" }}>
+            <div className="hn" style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "#EEEDF0" }}>
+              Fin<span style={{ color: "#F0A03C" }}>Track</span>
+              <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, marginLeft: 4 }}>IE</span>
             </div>
             {nextPayday && payroll && (
-              <div style={{ marginTop: 8, padding: "6px 10px", background: T.accentSoft, borderRadius: 8, border: `1px solid ${T.accent}30` }}>
-                <div style={{ fontSize: 9, color: T.accent, textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Next Payday</div>
-                <div className="mono" style={{ fontSize: 12, color: T.text, marginTop: 1 }}>{dateStr(nextPayday)}</div>
-                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: T.accent }}>{fmt(payroll.perNet)}</div>
+              <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(240,160,60,0.09)", borderRadius: 8, border: "1px solid rgba(240,160,60,0.2)" }}>
+                <div style={{ fontSize: 9, color: "#F0A03C", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Next Payday</div>
+                <div style={{ fontSize: 12, color: "#EEEDF0", marginTop: 2 }}>{dateStr(nextPayday)}</div>
+                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: "#F0A03C" }}>{fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
-
-          {/* Nav items */}
-          <nav style={{ padding: "10px 0", flex: 1 }}>
-            {/* Group 1: Main */}
-            <div style={{ padding: "4px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600 }}>Main</div>
+          <nav style={{ padding: "8px 0", flex: 1 }}>
+            <div className="nav-label">Main</div>
             {[
               { id: "dashboard", label: "Overview", icon: BarChart2 },
-              { id: "transactions", label: "Transactions", icon: Layers, badge: importQueue.length > 0 ? importQueue.length : 0 },
+              { id: "transactions", label: "Transactions", icon: Layers },
               { id: "accounts", label: "Accounts", icon: CreditCard },
-            ].map(t => {
-              const Icon = t.icon;
-              return (
-                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-                  <Icon size={15} className="nav-icon" />
-                  <span>{t.label}</span>
-                  {t.badge > 0 && <span style={{ marginLeft: "auto", background: T.red, color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>{t.badge}</span>}
-                </button>
-              );
-            })}
-
-            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Planning</div>
+            ].map(t => { const Icon = t.icon; return (
+              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
+                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
+                <span>{t.label}</span>
+                {t.id === "transactions" && importQueue.length > 0 && (
+                  <span style={{ marginLeft: "auto", background: "#E05C5C", color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
+                )}
+              </button>
+            ); })}
+            <div className="nav-label" style={{ marginTop: 8 }}>Planning</div>
             {[
               { id: "budgeting", label: "Budgeting", icon: Target },
               { id: "committed", label: "Committed", icon: Calendar },
               { id: "goals", label: "Goals", icon: Target },
-            ].map(t => {
-              const Icon = t.icon;
-              return (
-                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-                  <Icon size={15} className="nav-icon" />
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-
-            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Insights</div>
+            ].map(t => { const Icon = t.icon; return (
+              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
+                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
+                <span>{t.label}</span>
+              </button>
+            ); })}
+            <div className="nav-label" style={{ marginTop: 8 }}>Insights</div>
             {[
               { id: "analytics", label: "Analytics", icon: TrendingDown },
               { id: "timeline", label: "Timeline", icon: Clock },
-            ].map(t => {
-              const Icon = t.icon;
-              return (
-                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-                  <Icon size={15} className="nav-icon" />
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
-
-            <div style={{ padding: "12px 16px 6px", fontSize: 9, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.12em", fontWeight: 600, marginTop: 4 }}>Debt</div>
+            ].map(t => { const Icon = t.icon; return (
+              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
+                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
+                <span>{t.label}</span>
+              </button>
+            ); })}
+            <div className="nav-label" style={{ marginTop: 8 }}>Debt</div>
             {[
               { id: "debt", label: "Debt Tracker", icon: CreditCard },
               { id: "planner", label: "Debt Planner", icon: TrendingUp },
-            ].map(t => {
-              const Icon = t.icon;
-              return (
-                <button key={t.id} className={`nav-item ${tab === t.id ? "active" : ""}`} onClick={() => setTab(t.id)}>
-                  <Icon size={15} className="nav-icon" />
-                  <span>{t.label}</span>
-                </button>
-              );
-            })}
+            ].map(t => { const Icon = t.icon; return (
+              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
+                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
+                <span>{t.label}</span>
+              </button>
+            ); })}
           </nav>
-
-          {/* Bottom: Drive sync + settings */}
-          <div style={{ padding: "12px 8px", borderTop: `1px solid ${T.border}` }}>
+          <div style={{ padding: "10px 8px", borderTop: "1px solid #252830" }}>
             <DriveSync />
-            <button className={`nav-item ${tab === "settings" ? "active" : ""}`} onClick={() => setTab("settings")} style={{ marginTop: 4 }}>
-              <Settings size={15} className="nav-icon" />
+            <button className={"nav-item" + (tab === "settings" ? " active" : "")} onClick={() => setTab("settings")} style={{ marginTop: 4 }}>
+              <Settings size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
               <span>Settings</span>
             </button>
           </div>
         </aside>
 
-        {/* ── MOBILE NAV BAR ── */}
-        <div className="mobile-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 100, background: T.sidebar, borderTop: `1px solid ${T.border}`, padding: "6px 4px", gap: 0, justifyContent: "space-around", alignItems: "center" }}>
+        {/* MOBILE NAV BAR */}
+        <div className="mobile-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: "#0F1117", borderTop: "1px solid #252830", padding: "4px 0", justifyContent: "space-around", alignItems: "center" }}>
           {[
             { id: "dashboard", icon: BarChart2, label: "Home" },
             { id: "transactions", icon: Layers, label: "Txns" },
@@ -1408,65 +1362,55 @@ export default function App() {
             { id: "committed", icon: Calendar, label: "Bills" },
             { id: "debt", icon: CreditCard, label: "Debt" },
             { id: "settings", icon: Settings, label: "More" },
-          ].map(t => {
-            const Icon = t.icon;
-            const active = tab === t.id;
-            return (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 10px", border: "none", background: "none", cursor: "pointer", color: active ? T.accent : T.textDim, fontFamily: "inherit", minWidth: 44 }}>
-                <Icon size={18} />
-                <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{t.label}</span>
-              </button>
-            );
-          })}
+          ].map(t => { const Icon = t.icon; const active = tab === t.id; return (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 8px", border: "none", background: "none", cursor: "pointer", color: active ? "#F0A03C" : "#454760", fontFamily: "inherit", minWidth: 44 }}>
+              <Icon size={17} />
+              <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{t.label}</span>
+            </button>
+          ); })}
         </div>
 
-        {/* ── MAIN CONTENT ── */}
+        {/* MAIN CONTENT */}
         <main className="main-content" style={{ paddingBottom: 70 }}>
-          {/* Page header */}
-          <div style={{ padding: "20px 24px 0", marginBottom: 20 }}>
-            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-              <div>
-                <h1 className="hn" style={{ fontSize: 22, fontWeight: 800, color: T.text }}>
-                  {TABS.find(t => t.id === tab)?.label || "Overview"}
-                </h1>
-                <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>
-                  {new Date().toLocaleDateString("en-IE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-                </div>
-              </div>
-              <div className="hide-mobile">
-                <DriveSync />
+          <div style={{ padding: "20px 24px 4px", borderBottom: "1px solid #252830", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+            <div>
+              <h1 className="hn" style={{ fontSize: 22, fontWeight: 800, color: "#EEEDF0" }}>
+                {TABS.find(t => t.id === tab) ? TABS.find(t => t.id === tab).label : "Overview"}
+              </h1>
+              <div style={{ fontSize: 11, color: "#454760", marginTop: 2 }}>
+                {new Date().toLocaleDateString("en-IE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
               </div>
             </div>
+            <div className="hide-mobile"><DriveSync /></div>
           </div>
+          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
 
-          <div style={{ padding: "0 24px 24px", display: "flex", flexDirection: "column", gap: 20 }}>
-
-        {/* ══ DASHBOARD ══════════════════════════════════════════════════════════ */}
+        {/* -- DASHBOARD ---------------------------------------------------------- */}
         {tab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-            {/* KPI row — 2 cols on mobile, auto-fit on desktop */}
+            {/* KPI row - 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
-              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green" icon={TrendingUp}
+              <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
                 detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
-              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red" icon={TrendingDown}
+              <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red"
                 detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
               />
-              <StatCard label="Net Cash Flow" icon={BarChart2} value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
+              <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
                 detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
               />
-              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent" icon={Calendar}
+              <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent"
                 detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
               />
               {payroll && <StatCard label="Fortnightly Net" value={fmt(payroll.perNet)} color="text" sub={fmt(payroll.takeHome) + " /yr"} />}
-              <StatCard label="Uncategorised" icon={AlertCircle} value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
+              <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
                 onClick={() => setTab("transactions")}
-                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more — click to view all</div>}</div>}
+                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more - click to view all</div>}</div>}
               />
             </div>
 
-            {/* Two column — stacks on mobile */}
+            {/* Two column - stacks on mobile */}
             <div className="two-col">
               {/* Spending by category */}
               <div style={{ ...S.card, padding: 20 }}>
@@ -1506,7 +1450,7 @@ export default function App() {
                     <div key={tx.id} className="tx-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8 }} onClick={() => setTab("transactions")}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{tx.description}</div>
-                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` · ${tx.category}` : " · uncategorised"}</div>
+                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` - ${tx.category}` : " - uncategorised"}</div>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 600, color: tx.isCredit ? T.green : T.red, flexShrink: 0, marginLeft: 8 }}>
                         {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency)}
@@ -1547,7 +1491,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ TRANSACTIONS ══════════════════════════════════════════════════════ */}
+        {/* -- TRANSACTIONS ------------------------------------------------------ */}
         {tab === "transactions" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
@@ -1682,7 +1626,7 @@ export default function App() {
               />
             </div>
 
-            {/* Filter bar — single compact row */}
+            {/* Filter bar - single compact row */}
             <div style={{ ...S.card, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
               <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
                 {[["all","All"],["income","In"],["expense","Out"],["uncat","Uncat"]].map(([v,l]) => (
@@ -1722,8 +1666,7 @@ export default function App() {
                     debts={debts}
                     committed={committed}
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
-                    onSplit={tx => setSplitTx(tx)}
-                    onCategory={(cat, overrideOnly) => updateTxCategory(tx.id, cat, overrideOnly)}
+                    onCategory={cat => updateTxCategory(tx.id, cat)}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -1782,19 +1725,19 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ BUDGETING ══════════════════════════════════════════════════════════ */}
+        {/* -- BUDGETING ---------------------------------------------------------- */}
         {tab === "budgeting" && (
           <BudgetingTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
         )}
 
-        {/* ══ COMMITTED ═════════════════════════════════════════════════════════ */}
+        {/* -- COMMITTED --------------------------------------------------------- */}
         {tab === "committed" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
 
             {/* Compact add form */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Committed Expense</div>
-              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Fixed and variable recurring costs — projected with Irish banking day adjustments.</div>
+              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Fixed and variable recurring costs - projected with Irish banking day adjustments.</div>
               <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 12 }}>
                 <div style={{ gridColumn: "span 2" }}>
                   <Select label="Type" value={commitForm.typeId} onChange={e => {
@@ -1884,32 +1827,27 @@ export default function App() {
                               return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
                             })}
                             onChange={cat => {
-                              // Update committed expense category (always editable)
+                              // Update committed expense category
                               setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: cat } : x));
-                              if (!cat) return;
-                              // Auto-apply to ALL matching transactions using normalised description
-                              const normName = normaliseDesc(ce.name);
-                              setTransactions(prev => prev.map(tx => {
-                                if (tx.isCredit) return tx;
-                                const normDesc = normaliseDesc(tx.description || "");
-                                // Match if normalised descriptions share meaningful overlap
-                                if (normDesc === normName ||
-                                    normDesc.includes(normName) ||
-                                    normName.includes(normDesc) ||
-                                    (normName.length > 4 && normDesc.includes(normName.substring(0, Math.min(normName.length, 12))))) {
-                                  return { ...tx, category: cat };
-                                }
-                                return tx;
-                              }));
-                              // Create/update auto-categorisation rule
-                              setRules(prev => {
-                                const normName = normaliseDesc(ce.name);
-                                const shortKw = normName.split(" ").filter(w => w.length > 2).slice(0, 2).join(" ");
-                                if (!shortKw) return prev;
-                                // Remove any existing rule with this keyword
-                                const filtered = prev.filter(r => !r.keywords?.includes(shortKw));
-                                return [...filtered, { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
-                              });
+                              // Auto-apply to all matching transactions
+                              if (cat) {
+                                const kw = ce.name.toLowerCase().trim();
+                                setTransactions(prev => prev.map(tx => {
+                                  if (tx.isCredit) return tx;
+                                  const desc = (tx.description || "").toLowerCase().trim();
+                                  if (desc === kw || desc.includes(kw) || kw.includes(desc.substring(0, Math.min(desc.length, 20)))) {
+                                    return { ...tx, category: cat };
+                                  }
+                                  return tx;
+                                }));
+                                // Also create/update auto-categorisation rule
+                                setRules(prev => {
+                                  const existing = prev.find(r => r.category === cat && r.keywords?.some(k => kw.includes(k) || k.includes(kw)));
+                                  if (existing) return prev;
+                                  const shortKw = kw.split(" ").slice(0, 3).join(" ");
+                                  return [...prev.filter(r => !(r.keywords?.includes(shortKw))), { id: Date.now().toString(), description: ce.name, keywords: [shortKw], category: cat }];
+                                });
+                              }
                             }}
                             style={{ fontSize: 12 }}
                           />
@@ -1919,7 +1857,7 @@ export default function App() {
                         {next && (
                           <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
                             Next: {dateStr(next.effective)}
-                            {next.shifted && <span style={{ color: T.accent, marginLeft: 6 }}>(moved — weekend/holiday)</span>}
+                            {next.shifted && <span style={{ color: T.accent, marginLeft: 6 }}>(moved - weekend/holiday)</span>}
                           </div>
                         )}
                       </div>
@@ -1958,17 +1896,12 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ ACCOUNTS ══════════════════════════════════════════════════════════ */}
-        {tab === "accounts" && (
-          <AccountsTab transactions={transactions} debts={debts} />
-        )}
-
-        {/* ══ MONTHLY ════════════════════════════════════════════════════════════ */}
+        {/* -- MONTHLY ------------------------------------------------------------ */}
         {tab === "analytics" && (
           <AnalyticsTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
         )}
 
-        {/* ══ DEBT ══════════════════════════════════════════════════════════════ */}
+        {/* -- DEBT -------------------------------------------------------------- */}
         {tab === "debt" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 20 }}>
 
@@ -1986,7 +1919,7 @@ export default function App() {
               );
             })()}
 
-            {/* ── ASSETS ───────────────────────────────────────────────────── */}
+            {/* -- ASSETS ----------------------------------------------------- */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Asset / Savings Account</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Track savings accounts, share accounts, deposits and investments. A Credit Union share account is an asset.</div>
@@ -2035,7 +1968,7 @@ export default function App() {
               </div>
             )}
 
-            {/* ── LIABILITIES ──────────────────────────────────────────────── */}
+            {/* -- LIABILITIES ------------------------------------------------ */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Liability / Loan</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>
@@ -2072,13 +2005,13 @@ export default function App() {
                     placeholder="e.g. 250.00" style={{ ...S.input }} />
                   <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>Term will be auto-calculated from this + rate</div>
                 </div>
-                <Input label="Term (months — or leave blank)" type="number" value={debtForm.termMonths} onChange={e => setDebtForm(p => ({ ...p, termMonths: e.target.value }))} placeholder="e.g. 60" />
+                <Input label="Term (months - or leave blank)" type="number" value={debtForm.termMonths} onChange={e => setDebtForm(p => ({ ...p, termMonths: e.target.value }))} placeholder="e.g. 60" />
                 <Input label="Next due date" type="date" value={debtForm.dueDate} onChange={e => setDebtForm(p => ({ ...p, dueDate: e.target.value }))} />
                 {assets.length > 0 && (
                   <div>
                     <label style={S.label}>Linked asset (optional)</label>
                     <select value={debtForm.linkedAssetId} onChange={e => setDebtForm(p => ({ ...p, linkedAssetId: e.target.value }))} style={{ ...S.input, fontSize: 12 }}>
-                      <option value="">— none —</option>
+                      <option value="">- none -</option>
                       {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
                     </select>
                   </div>
@@ -2108,7 +2041,7 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ TIMELINE ══════════════════════════════════════════════════════════ */}
+        {/* -- TIMELINE ---------------------------------------------------------- */}
         {tab === "timeline" && (
           <div style={{ ...S.card, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}>
@@ -2144,33 +2077,14 @@ export default function App() {
           </div>
         )}
 
-        {/* ══ PLANNER ════════════════════════════════════════════════════════════ */}
+        {/* -- PLANNER ------------------------------------------------------------ */}
         {tab === "planner" && (
           <DebtPlannerTab debts={debts} setDebts={setDebts} />
         )}
 
-        {/* ══ GOALS ═══════════════════════════════════════════════════════════════ */}
-        {tab === "goals" && (
-          <GoalsTab />
-        )}
-
-        {/* ══ SETTINGS ══════════════════════════════════════════════════════════ */}
+        {/* -- SETTINGS ---------------------------------------------------------- */}
         {tab === "settings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 700 }}>
-
-            {/* Export & Backup */}
-            <div style={{ ...S.card, padding: "16px 20px" }}>
-              <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Export & Backup</div>
-              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Download your data anytime for backup or use in other tools.</div>
-              <div style={{ display: "flex", gap: 10, flexWrap: "wrap" }}>
-                <Btn variant="ghost" onClick={() => exportToCSV(transactions)}>
-                  <Upload size={13} /> Export CSV
-                </Btn>
-                <Btn variant="ghost" onClick={() => exportToJSON({ transactions, committed, debts, rules, customOverheads, exportedAt: new Date().toISOString() })}>
-                  <Upload size={13} /> Full Backup JSON
-                </Btn>
-              </div>
-            </div>
 
             {/* Custom Overheads */}
             <div style={{ ...S.card, padding: 20 }}>
@@ -2251,20 +2165,7 @@ export default function App() {
         )}
       </div>
 
-      {/* ── LOAN PROMPT MODAL ────────────────────────────────────────────── */}
-      {/* Split Transaction Modal */}
-      {splitTx && (
-        <SplitTransactionModal
-          tx={splitTx}
-          overheadGroups={OVERHEAD_GROUPS}
-          onSave={(splits) => {
-            setTransactions(prev => prev.map(t => t.id === splitTx.id ? { ...t, splits, category: splits[0]?.category || t.category } : t));
-            setSplitTx(null);
-          }}
-          onDismiss={() => setSplitTx(null)}
-        />
-      )}
-
+      {/* -- LOAN PROMPT MODAL ---------------------------------------------- */}
       {loanPrompt && (
         <LoanPromptModal
           prompt={loanPrompt}
@@ -2286,7 +2187,7 @@ export default function App() {
     </div>
   );
 }
-// ─── PMT CALCULATION ─────────────────────────────────────────────────────────
+// --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
 const DEBT_FREQ = { monthly: 12, fortnightly: 26, weekly: 52 };
@@ -2321,7 +2222,7 @@ function calcTermFromPayment(balance, annualRatePct, periodicPayment, frequency)
   return calcPayoffMonths(balance, annualRatePct, periodicPayment, frequency);
 }
 
-// ─── OPTIMAL DUE DATE CALCULATOR ─────────────────────────────────────────────
+// --- OPTIMAL DUE DATE CALCULATOR ---------------------------------------------
 // Finds the best day in the next 30 days to make a debt payment.
 // Strategy: find the day with highest estimated net cash position
 // (after income has landed, before the next cluster of bills).
@@ -2357,7 +2258,7 @@ function calcOptimalDueDate(timeline60, paymentAmount) {
   return bestDate;
 }
 
-// ─── ASSET CARD ──────────────────────────────────────────────────────────────
+// --- ASSET CARD --------------------------------------------------------------
 function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
   const [editing, setEditing] = useState(false);
   const [form, setForm] = useState({
@@ -2484,26 +2385,11 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
     if (!editing) setForm(f => ({ ...f, balance: debt.balance, balanceAsOf: today() }));
   }
 
-  // For BNPL: auto-calculate remaining balance based on payments made since opening
-  const rawBalance = parseFloat(form.balance) || 0;
-  const total = parseFloat(form.total) || rawBalance;
+  const balance = parseFloat(form.balance) || 0;
+  const total = parseFloat(form.total) || balance;
   const rate = parseFloat(form.rate) || 0;
   const term = parseInt(form.termMonths) || 0;
   const freq = form.paymentFrequency || "monthly";
-
-  // BNPL auto-balance: count periods elapsed since balanceAsOf, deduct instalments
-  const balance = (() => {
-    if (debt.type !== "bnpl" || !form.balanceAsOf || !term || !total) return rawBalance;
-    const instalment = total / term;
-    const asOfDate = new Date(form.balanceAsOf + "T12:00:00");
-    const now = new Date();
-    const monthsElapsed = (now.getFullYear() - asOfDate.getFullYear()) * 12 + (now.getMonth() - asOfDate.getMonth());
-    // Only auto-calc if no manual payments have been recorded
-    if ((debt.paymentHistory || []).length > 0) return rawBalance;
-    const autoBalance = Math.max(0, rawBalance - (Math.max(0, monthsElapsed) * instalment));
-    return parseFloat(autoBalance.toFixed(2));
-  })();
-
   const pct = total > 0 ? Math.min(100, ((total - balance) / total) * 100) : 0;
 
   const periodicPayment = calcPMT(balance, rate, term, freq);
@@ -2573,9 +2459,9 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
   return (
     <div style={{ ...S.card, overflow: "hidden" }}>
       {/* Header */}
-      <div style={{ padding: "12px 14px", display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: 8 }}>
+      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
             <span className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{debt.name}</span>
             {isFirst && <Badge color="red">Avalanche Priority</Badge>}
             {rate > 0 && <Badge color="accent">{rate}% APR</Badge>}
@@ -2618,7 +2504,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
       {/* Edit form */}
       {editing && (
         <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
             <div>
@@ -2659,7 +2545,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               <input type="number" value={form.knownPayment} onChange={fld("knownPayment")} placeholder="e.g. 250.00"
                 style={{ ...S.input }} />
               <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>
-                Enter your actual repayment — term will be calculated automatically
+                Enter your actual repayment - term will be calculated automatically
               </div>
             </div>
             <div>
@@ -2699,18 +2585,18 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
                 : <span style={{ color: T.textDim, fontSize: 12 }}>Set rate & term</span>}
             </div>
             {freq !== "monthly" && monthlyEquiv > 0 && (
-              <div style={{ fontSize: 10, color: T.textDim }}>≈ {fmt(monthlyEquiv, debt.currency)}/mo</div>
+              <div style={{ fontSize: 10, color: T.textDim }}>- {fmt(monthlyEquiv, debt.currency)}/mo</div>
             )}
           </div>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Total Interest</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.textMid }}>
-              {totalInterest > 0 ? fmt(totalInterest, debt.currency) : "—"}
+              {totalInterest > 0 ? fmt(totalInterest, debt.currency) : "-"}
             </div>
           </div>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Payoff</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{payoffDate || (term > 0 ? "—" : "Set term")}</div>
+            <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{payoffDate || (term > 0 ? "-" : "Set term")}</div>
             {payoffMonths && <div style={{ fontSize: 10, color: T.textDim }}>{payoffMonths} months</div>}
           </div>
         </div>
@@ -2787,7 +2673,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
           <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: T.green }}>Cash-flow optimal payment date</div>
-              <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses — most headroom on {dateStr(suggestedDueDate)}.</div>
+              <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses - most headroom on {dateStr(suggestedDueDate)}.</div>
             </div>
             <button onClick={useSuggestedDate}
               style={{ background: T.green, color: "#0E0E10", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
@@ -2835,7 +2721,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed }) {
   const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2853,7 +2739,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
 
   return (
     <div className="row-hover" style={{ borderBottom: `1px solid ${T.border}`, padding: "10px 14px" }}>
-      {/* Line 1: date · description · nature badge · amount */}
+      {/* Line 1: date - description - nature badge - amount */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0, width: 80 }}>{dateStr(tx.date)}</span>
         <span style={{ fontSize: 13, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
@@ -2864,57 +2750,39 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
           style={{ background: nature === "capital" ? T.purpleDim : nature === "balance_sheet" ? T.blueDim : T.surfaceHigh, color: nature === "capital" ? T.purple : nature === "balance_sheet" ? T.blue : T.textDim, border: `1px solid ${nature === "capital" ? T.purple+"50" : nature === "balance_sheet" ? T.blue+"50" : T.border}`, borderRadius: 5, padding: "1px 6px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, fontWeight: 600 }}>
           {nature === "capital" ? "CAP" : nature === "balance_sheet" ? "B/S" : "REV"}
         </button>
-        <span className="mono" style={{ fontSize: 13, fontWeight: 600, color: tx.isCredit ? T.green : T.red, flexShrink: 0, letterSpacing: "-0.02em" }}>
+        <span style={{ fontSize: 13, fontWeight: 700, color: tx.isCredit ? T.green : T.red, flexShrink: 0 }}>
           {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency || "EUR")}
         </span>
       </div>
 
-      {/* Line 2: category combo · badges · delete */}
+      {/* Line 2: category combo - badges - delete */}
       <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
         <CategoryCombo
           value={tx.category || ""}
           overheadGroups={OG}
           onNewCategory={label => { if (onNewCategory) onNewCategory(label); }}
-          onChange={(cat, overrideOnly) => onCategory(cat, overrideOnly)}
+          onChange={cat => onCategory(cat)}
           placeholder="Type or select category..."
         />
-        {/* "This one only" badge — stops bulk rule from overriding this tx */}
-        {tx.ruleMatched && !tx.categoryOverride && (
-          <button
-            title="This category was set by a rule. Click to override just this transaction without affecting others."
-            onClick={() => onCategory(tx.category, true)}
-            style={{ background: T.accentDim+"40", color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 5, padding: "2px 6px", fontSize: 9, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            rule
-          </button>
-        )}
         {tx.debtAllocated && <Badge color="purple">Debt</Badge>}
         {tx.aiSuggested && <Badge color="blue">AI</Badge>}
         {tx.isPAYE && <Badge color="green">PAYE</Badge>}
-        {/* Debt allocation button — only on outgoing transactions when debts exist */}
+        {/* Debt allocation button - only on outgoing transactions when debts exist */}
         {!tx.isCredit && debts && debts.length > 0 && !allocating && (
           <button onClick={() => { setAllocating(true); setSelectedDebt(debts[0]?.id || ""); }}
             title="Allocate this payment toward a debt"
             style={{ background: tx.debtAllocated ? T.purpleDim : T.surfaceHigh, color: tx.debtAllocated ? T.purple : T.textDim, border: `1px solid ${tx.debtAllocated ? T.purple+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {tx.debtAllocated ? "Reallocate" : "→ Debt"}
+            {tx.debtAllocated ? "Reallocate" : "- Debt"}
           </button>
         )}
-        {/* Commit expense button — only on outgoing transactions */}
+        {/* Commit expense button - only on outgoing transactions */}
         {!tx.isCredit && onCommit && !committing && (
           <button onClick={() => setCommitting(true)}
             title="Commit as a recurring expense"
             style={{ background: alreadyCommitted ? T.accentDim+"30" : T.surfaceHigh, color: alreadyCommitted ? T.accent : T.textDim, border: `1px solid ${alreadyCommitted ? T.accent+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {alreadyCommitted ? "★ Committed" : "★ Commit"}
+            {alreadyCommitted ? "- Committed" : "- Commit"}
           </button>
         )}
-        {/* Split transaction button */}
-        {!tx.isCredit && onSplit && !tx.splits && (
-          <button onClick={() => onSplit(tx)}
-            title="Split this transaction across multiple categories"
-            style={{ background: T.surfaceHigh, color: T.textDim, border: `1px solid ${T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            Split
-          </button>
-        )}
-        {tx.splits && <Badge color="blue">Split</Badge>}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
@@ -2928,7 +2796,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
               <>
                 {preSnapshot && (
                   <div style={{ fontSize: 11, color: T.accent, background: T.accentDim+"30", borderRadius: 6, padding: "5px 8px" }}>
-                    This transaction ({dateStr(tx.date)}) is before the balance snapshot ({dateStr(chosen.balanceAsOf)}) — it will be tagged for record-keeping but the balance will not be reduced.
+                    This transaction ({dateStr(tx.date)}) is before the balance snapshot ({dateStr(chosen.balanceAsOf)}) - it will be tagged for record-keeping but the balance will not be reduced.
                   </div>
                 )}
                 <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
@@ -2936,7 +2804,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
                     style={{ ...S.input, fontSize: 11, padding: "4px 8px", flex: 1 }}>
                     {debts.map(d => (
                       <option key={d.id} value={d.id}>
-                        {d.name} — balance {fmt(parseFloat(d.balance), d.currency)}{d.balanceAsOf ? " (as of " + dateStr(d.balanceAsOf) + ")" : ""}
+                        {d.name} - balance {fmt(parseFloat(d.balance), d.currency)}{d.balanceAsOf ? " (as of " + dateStr(d.balanceAsOf) + ")" : ""}
                       </option>
                     ))}
                   </select>
@@ -2959,7 +2827,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
           <div style={{ fontSize: 12, fontWeight: 600, color: T.accent, marginBottom: 8 }}>Commit as recurring expense</div>
           <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
             <div style={{ flex: 1, minWidth: 100 }}>
-              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Amount (€)</div>
+              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Amount (-)</div>
               <input type="number" step="0.01" value={commitAmt} onChange={e => setCommitAmt(e.target.value)}
                 style={{ ...S.input, fontSize: 12, padding: "5px 8px", width: "100%" }} />
             </div>
@@ -3000,7 +2868,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
             </div>
           </div>
           <div style={{ fontSize: 10, color: T.textDim, marginTop: 6 }}>
-            {(() => { const rec = RECURRENCES.find(r => r.v === commitRec); const mo = (parseFloat(commitAmt)||0)*(rec?.ppy||0)/12; return mo > 0 ? `≈ ${fmt(mo)}/month · ${fmt((parseFloat(commitAmt)||0)*(rec?.ppy||0))}/year` : ""; })()}
+            {(() => { const rec = RECURRENCES.find(r => r.v === commitRec); const mo = (parseFloat(commitAmt)||0)*(rec?.ppy||0)/12; return mo > 0 ? `- ${fmt(mo)}/month - ${fmt((parseFloat(commitAmt)||0)*(rec?.ppy||0))}/year` : ""; })()}
           </div>
         </div>
       )}
@@ -3008,7 +2876,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
   );
 }
 
-// ─── MANUAL TX FORM ──────────────────────────────────────────────────────────
+// --- MANUAL TX FORM ----------------------------------------------------------
 function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const [form, setForm] = useState({ date: today(), description: "", amount: "", currency: "EUR", isCredit: false, category: "", nature: "revenue" });
@@ -3073,7 +2941,7 @@ function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
   );
 }
 
-// ─── ADD OVERHEAD FORM ────────────────────────────────────────────────────────
+// --- ADD OVERHEAD FORM --------------------------------------------------------
 function AddOverheadForm({ onAdd }) {
   const allGroups = [...Object.keys(BUILTIN_OVERHEAD_GROUPS), "Custom"];
   const [form, setForm] = useState({ label: "", group: "Other", nature: "revenue", newGroup: "" });
@@ -3118,7 +2986,7 @@ function AddOverheadForm({ onAdd }) {
 }
 
 
-// ─── RULE EDITOR ─────────────────────────────────────────────────────────────
+// --- RULE EDITOR -------------------------------------------------------------
 function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const [keywordsStr, setKeywordsStr] = useState((rule.keywords || []).join(", "));
@@ -3131,7 +2999,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
     if (keywords.length === 0 || !category) return;
     onChange({ ...rule, keywords, category, created: rule.created || today(), isNew: false });
     setDirty(false);
-    setSavedMsg("Rule saved — applying to transactions...");
+    setSavedMsg("Rule saved - applying to transactions...");
     setTimeout(() => setSavedMsg(""), 3000);
   }
 
@@ -3203,7 +3071,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
 }
 
 
-// ─── LOAN PROMPT MODAL (with BNPL + inline debt creation) ────────────────────
+// --- LOAN PROMPT MODAL (with BNPL + inline debt creation) --------------------
 function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) {
   const { tx, type, count } = prompt;
   const isBNPL = tx.category === "BNPL Payment";
@@ -3221,11 +3089,11 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
     <div style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.75)", zIndex: 1000, display: "flex", alignItems: "center", justifyContent: "center", padding: 20 }}>
       <div style={{ ...S.card, padding: 24, maxWidth: 480, width: "100%", background: T.surface }}>
         <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4, color: isBNPL ? T.blue : type === "received" ? T.purple : T.accent }}>
-          {isBNPL ? "Buy Now Pay Later — Instalment" : type === "received" ? "Loan Received — Liability" : "Loan Repayment — Reduces Liability"}
+          {isBNPL ? "Buy Now Pay Later - Instalment" : type === "received" ? "Loan Received - Liability" : "Loan Repayment - Reduces Liability"}
         </div>
         <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>
           {isBNPL ? "Set the total purchase amount and instalments to track the full debt."
-            : type === "received" ? "This is a liability — creates a debt entry."
+            : type === "received" ? "This is a liability - creates a debt entry."
             : "This payment reduces a liability. Link to an existing debt or create a new one."}
         </div>
 
@@ -3257,13 +3125,13 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
             <div><label style={S.label}>Purchase / Debt name</label>
               <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
             <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 10 }}>
-              <div><label style={S.label}>Total amount (€)</label>
+              <div><label style={S.label}>Total amount (-)</label>
                 <input type="number" step="0.01" value={loanAmount} onChange={e => setLoanAmount(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} /></div>
               <div><label style={S.label}>Instalments</label>
                 <input type="number" min="2" max="36" value={instalments} onChange={e => setInstalments(e.target.value)} style={{ ...S.input, borderColor: T.blue + "60" }} /></div>
             </div>
             <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px", fontSize: 12 }}>
-              {[["Total", fmt(confirmedAmount), T.text], ["First paid", "−" + fmt(firstPayment), T.green], ["Remaining", fmt(Math.max(0, remainingBalance)), T.accent]].map(([l,v,c]) => (
+              {[["Total", fmt(confirmedAmount), T.text], ["First paid", "-" + fmt(firstPayment), T.green], ["Remaining", fmt(Math.max(0, remainingBalance)), T.accent]].map(([l,v,c]) => (
                 <div key={l} style={{ display: "flex", justifyContent: "space-between", marginBottom: 3 }}>
                   <span style={{ color: T.textMid }}>{l}</span><span style={{ color: c, fontWeight: l === "Remaining" ? 700 : 400 }}>{v}</span>
                 </div>
@@ -3283,26 +3151,26 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
           </div>
         )}
 
-        {/* Repayment — link to existing */}
+        {/* Repayment - link to existing */}
         {!isBNPL && type === "repayment" && mode === "link" && (
           <div style={{ marginBottom: 16 }}>
             {debts.length > 0 ? (
               <>
                 <label style={S.label}>Apply repayment to</label>
                 <select value={selectedDebt} onChange={e => setSelectedDebt(e.target.value)} style={{ ...S.input, marginBottom: 6 }}>
-                  {debts.map(d => (<option key={d.id} value={d.id}>{d.name} — {fmt(parseFloat(d.balance), d.currency)} remaining</option>))}
+                  {debts.map(d => (<option key={d.id} value={d.id}>{d.name} - {fmt(parseFloat(d.balance), d.currency)} remaining</option>))}
                 </select>
                 <div style={{ fontSize: 11, color: T.textDim }}>Reduces balance by {fmt(parseFloat(tx.amount), tx.currency || "EUR")}</div>
               </>
             ) : (
               <div style={{ fontSize: 12, color: T.textDim, padding: "10px 12px", borderRadius: 8, background: T.surfaceHigh }}>
-                No debts yet — switch to "Create new debt" to add one.
+                No debts yet - switch to "Create new debt" to add one.
               </div>
             )}
           </div>
         )}
 
-        {/* Repayment — create new debt */}
+        {/* Repayment - create new debt */}
         {!isBNPL && type === "repayment" && mode === "create" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             <div><label style={S.label}>Debt name</label>
@@ -3350,14 +3218,12 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
           )}
           <Btn variant="ghost" onClick={onDismiss}>Dismiss</Btn>
         </div>
-          </div>
-        </main>
       </div>
     </div>
   );
 }
 
-// ─── GOOGLE DRIVE SYNC ────────────────────────────────────────────────────────
+// --- GOOGLE DRIVE SYNC --------------------------------------------------------
 const GDRIVE_CLIENT_ID = '746587088287-p2rdrcg501p2gv1erfdttpvukihcur63.apps.googleusercontent.com';
 const GDRIVE_SCOPES = 'https://www.googleapis.com/auth/drive.appdata';
 const GDRIVE_FILE_NAME = 'fintrack-ie-data.json';
@@ -3375,7 +3241,7 @@ async function loadFromGDrive(token) {
   if (!data || Object.keys(data).length <= 1) return null;
   // Safety: check Drive has meaningful data before loading
   const driveTxCount = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
-  if (driveTxCount === 0) return null; // Drive has no transactions — treat as empty
+  if (driveTxCount === 0) return null; // Drive has no transactions - treat as empty
   LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
   return { savedAt: data['_savedAt'] || 'unknown', txCount: driveTxCount };
 }
@@ -3383,7 +3249,7 @@ async function loadFromGDrive(token) {
 async function saveToGDriveSafe(token) {
   // Safety: never save empty data to Drive
   const localTxCount = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-  if (localTxCount === 0) throw new Error('Local data is empty — not saving to avoid data loss');
+  if (localTxCount === 0) throw new Error('Local data is empty - not saving to avoid data loss');
   return saveToGDrive(token);
 }
 function DriveSync() {
@@ -3422,30 +3288,30 @@ function DriveSync() {
     return t;
   };
 
-  // PUSH — save local data to Drive
+  // PUSH - save local data to Drive
   const push = async () => {
     try {
       const localTx = (() => { try { return JSON.parse(localStorage.getItem('ft_transactions') || '[]').length; } catch { return 0; } })();
-      if (localTx === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 3000); return; }
-      setStatus('syncing'); setMsg('Saving...');
+      if (localTx === 0) { setMsg('Nothing to save yet.'); setTimeout(() => setMsg(''), 2000); return; }
+      setStatus('syncing'); setMsg('Saving to Drive...');
       const t = await getToken();
       await saveToGDrive(t);
       const ts = new Date().toLocaleString('en-IE');
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('saved'); setMsg(`✓ Saved ${localTx} transactions`);
+      setStatus('saved'); setMsg(`Saved ${localTx} transactions`);
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     } catch(e) {
-      tokenRef.current = null;
-      setStatus('error'); setMsg('Session expired — tap Refresh to sign in again');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 5000);
+      setStatus('error'); setMsg('Save failed');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     }
   };
 
-  // PULL — always fetch latest from Drive and apply it
+  // PULL - always fetch latest from Drive and apply it
   const pull = async () => {
     try {
       setStatus('syncing'); setMsg('Fetching from Drive...');
       const t = await getToken();
+      // Direct fetch - bypass the "don't overwrite" guard for manual pull
       const fileId = await findOrCreateFile(t);
       const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, {
         headers: { Authorization: `Bearer ${t}` }
@@ -3454,22 +3320,19 @@ function DriveSync() {
       const data = await r.json();
       const driveTx = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
       if (driveTx === 0) {
-        setStatus('error'); setMsg('No data on Drive yet — Push your data first');
-        setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
+        setStatus('error'); setMsg('No data on Drive yet');
+        setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
         return;
       }
       // Apply Drive data to localStorage
       LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
-      // Always use current time as "pulled at" so timestamp is always fresh
-      const ts = new Date().toLocaleString('en-IE');
+      const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
       setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
-      setStatus('loaded'); setMsg(`✓ Loaded ${driveTx} transactions`);
-      setTimeout(() => window.location.reload(), 1000);
+      setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions - reloading`);
+      setTimeout(() => window.location.reload(), 800);
     } catch(e) {
-      // Token may have expired — reset so user can re-sign-in
-      tokenRef.current = null;
-      setStatus('error'); setMsg('Session expired — tap Refresh to sign in again');
-      setTimeout(() => { setStatus('idle'); setMsg(''); }, 5000);
+      setStatus('error'); setMsg('Pull failed');
+      setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     }
   };
 
@@ -3487,14 +3350,14 @@ function DriveSync() {
       const driveTx = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
 
       if (driveTx > 0 && localTx === 0) {
-        // Drive has data, local empty — pull from Drive
+        // Drive has data, local empty - pull from Drive
         LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
         const ts = data['_savedAt'] ? new Date(data['_savedAt']).toLocaleString('en-IE') : new Date().toLocaleString('en-IE');
         setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
         setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions`);
         setTimeout(() => window.location.reload(), 800);
       } else if (localTx > 0 && driveTx === 0) {
-        // Local has data, Drive empty — push to Drive
+        // Local has data, Drive empty - push to Drive
         setMsg(`Saving ${localTx} transactions to Drive...`);
         await saveToGDrive(t);
         const ts = new Date().toLocaleString('en-IE');
@@ -3502,11 +3365,11 @@ function DriveSync() {
         setStatus('saved'); setMsg(`Saved ${localTx} transactions to Drive!`);
         setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
       } else if (localTx > 0 && driveTx > 0) {
-        // Both have data — show options
-        setStatus('saved'); setMsg(`Signed in · ${localTx} local, ${driveTx} on Drive`);
+        // Both have data - show options
+        setStatus('saved'); setMsg(`Signed in - ${localTx} local, ${driveTx} on Drive`);
         setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
       } else {
-        setStatus('idle'); setMsg('Signed in · no data yet');
+        setStatus('idle'); setMsg('Signed in - no data yet');
         setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
       }
     } catch(e) {
@@ -3524,20 +3387,20 @@ function DriveSync() {
       {!msg && lastSync && <span style={{ fontSize: 10, color: T.textDim, whiteSpace: 'nowrap' }}>&#10003; {lastSync}</span>}
       {!isSignedIn ? (
         <button onClick={signIn} disabled={status === 'syncing'}
-          style={{ background: T.accentSoft, color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 8, fontSize: 12, padding: '6px 12px', gap: 6, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap', cursor: 'pointer', display: 'flex', alignItems: 'center', fontFamily: 'inherit', fontWeight: 600 }}>
-          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
+          style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 10px', gap: 4, opacity: status === 'syncing' ? 0.6 : 1, whiteSpace: 'nowrap' }}>
+          <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
           Refresh
         </button>
       ) : (
         <div style={{ display: 'flex', gap: 4 }}>
           <button onClick={pull} disabled={status === 'syncing'}
-            title="Refresh — load latest data from Drive"
+            title="Refresh - load latest data from Drive"
             style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.blue + '60', color: T.blue, whiteSpace: 'nowrap' }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><polyline points="23 4 23 10 17 10"/><polyline points="1 20 1 14 7 14"/><path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"/></svg>
             Refresh
           </button>
           <button onClick={push} disabled={status === 'syncing'}
-            title="Save — upload this device's data to Drive"
+            title="Save - upload this device's data to Drive"
             style={{ ...S.btn.ghost, fontSize: 11, padding: '5px 8px', gap: 3, opacity: status === 'syncing' ? 0.6 : 1, borderColor: T.green + '60', color: T.green, whiteSpace: 'nowrap' }}>
             <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5"><path d="M19 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11l5 5v11a2 2 0 0 1-2 2z"/><polyline points="17 21 17 13 7 13 7 21"/><polyline points="7 3 7 8 15 8"/></svg>
             Save
@@ -3548,315 +3411,7 @@ function DriveSync() {
   );
 }
 
-
-// ─── SPLIT TRANSACTION MODAL ─────────────────────────────────────────────────
-function SplitTransactionModal({ tx, overheadGroups, onSave, onDismiss }) {
-  const [splits, setSplits] = useState([
-    { id: '1', category: tx.category || '', amount: (tx.amount / 2).toFixed(2) },
-    { id: '2', category: '', amount: (tx.amount / 2).toFixed(2) },
-  ]);
-  const total = splits.reduce((s, sp) => s + (parseFloat(sp.amount) || 0), 0);
-  const remaining = tx.amount - total;
-  const isBalanced = Math.abs(remaining) < 0.01;
-
-  const addSplit = () => setSplits(prev => [...prev, { id: Date.now().toString(), category: '', amount: Math.max(0, remaining).toFixed(2) }]);
-  const removeSplit = (id) => setSplits(prev => prev.filter(s => s.id !== id));
-  const updateSplit = (id, field, val) => setSplits(prev => prev.map(s => s.id === id ? { ...s, [field]: val } : s));
-
-  return (
-    <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.8)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: 16 }}>
-      <div style={{ ...S.card, padding: 24, maxWidth: 480, width: '100%', background: T.surface }}>
-        <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Split Transaction</div>
-        <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: '10px 14px', marginBottom: 16, display: 'flex', justifyContent: 'space-between' }}>
-          <span style={{ fontSize: 12, color: T.textMid, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flex: 1 }}>{tx.description}</span>
-          <span style={{ fontSize: 14, fontWeight: 700, color: T.red, flexShrink: 0, marginLeft: 8 }}>{fmt(tx.amount)}</span>
-        </div>
-        <div style={{ display: 'flex', flexDirection: 'column', gap: 8, marginBottom: 12 }}>
-          {splits.map((sp, i) => (
-            <div key={sp.id} style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <div style={{ flex: 1 }}>
-                <CategoryCombo
-                  value={sp.category}
-                  overheadGroups={overheadGroups}
-                  placeholder={`Category ${i + 1}...`}
-                  onChange={cat => updateSplit(sp.id, 'category', cat)}
-                />
-              </div>
-              <input type="number" step="0.01" min="0" value={sp.amount}
-                onChange={e => updateSplit(sp.id, 'amount', e.target.value)}
-                style={{ ...S.input, width: 90, fontSize: 13, padding: '6px 10px' }} />
-              {splits.length > 2 && (
-                <button onClick={() => removeSplit(sp.id)} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><X size={13} /></button>
-              )}
-            </div>
-          ))}
-        </div>
-        <div style={{ display: 'flex', justifyContent: 'space-between', padding: '8px 0', borderTop: `1px solid ${T.border}`, marginBottom: 16 }}>
-          <span style={{ fontSize: 12, color: T.textDim }}>Remaining unallocated</span>
-          <span style={{ fontSize: 13, fontWeight: 700, color: Math.abs(remaining) < 0.01 ? T.green : T.red }}>{fmt(Math.abs(remaining))}{remaining > 0.01 ? ' left' : remaining < -0.01 ? ' over' : ' ✓'}</span>
-        </div>
-        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-          <Btn variant="ghost" onClick={addSplit}><Plus size={13} /> Add line</Btn>
-          <Btn disabled={!isBalanced || splits.some(s => !s.category)} onClick={() => isBalanced && onSave(splits)}>
-            <Check size={13} /> Save Split
-          </Btn>
-          <Btn variant="ghost" onClick={onDismiss}>Cancel</Btn>
-        </div>
-        {!isBalanced && <div style={{ fontSize: 11, color: T.accent, marginTop: 8 }}>Amounts must add up to {fmt(tx.amount)} before saving.</div>}
-      </div>
-    </div>
-  );
-}
-
-// ─── ACCOUNTS TAB ─────────────────────────────────────────────────────────────
-function AccountsTab({ transactions, debts }) {
-  const [accounts, setAccounts] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_accounts') || '[]'); } catch { return []; } });
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: '', type: 'bank', currency: 'EUR', openingBalance: '0', note: '' });
-  useEffect(() => { try { localStorage.setItem('ft_accounts', JSON.stringify(accounts)); } catch {} }, [accounts]);
-
-  const accountTypes = [
-    { id: 'bank', label: 'Bank / Current', icon: '🏦' },
-    { id: 'savings', label: 'Savings', icon: '💰' },
-    { id: 'credit', label: 'Credit Card', icon: '💳' },
-    { id: 'loan', label: 'Loan / HP', icon: '📋' },
-    { id: 'investment', label: 'Investment', icon: '📈' },
-    { id: 'cash', label: 'Cash', icon: '💵' },
-    { id: 'asset', label: 'Asset', icon: '🏠' },
-  ];
-
-  // Calculate balance for each account from transactions
-  const balances = useMemo(() => {
-    const map = {};
-    accounts.forEach(acc => {
-      const opening = parseFloat(acc.openingBalance) || 0;
-      const txTotal = transactions
-        .filter(tx => tx.accountId === acc.id)
-        .reduce((s, tx) => s + (tx.isCredit ? tx.amount : -tx.amount), 0);
-      map[acc.id] = opening + txTotal;
-    });
-    return map;
-  }, [accounts, transactions]);
-
-  const totalAssets = accounts
-    .filter(a => ['bank','savings','investment','cash','asset'].includes(a.type))
-    .reduce((s, a) => s + (balances[a.id] || 0), 0);
-  const totalLiabilities = accounts
-    .filter(a => ['credit','loan'].includes(a.type))
-    .reduce((s, a) => s + Math.abs(balances[a.id] || 0), 0);
-  const netWorth = totalAssets - totalLiabilities;
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      {/* Net worth summary */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
-        {[
-          { l: 'Net Worth', v: fmt(netWorth), c: netWorth >= 0 ? T.green : T.red },
-          { l: 'Total Assets', v: fmt(totalAssets), c: T.green },
-          { l: 'Total Liabilities', v: fmt(totalLiabilities), c: T.red },
-          { l: 'Accounts', v: accounts.length.toString(), c: T.text },
-        ].map(({ l, v, c }) => (
-          <div key={l} style={{ ...S.card, padding: '12px 16px' }}>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: 'uppercase', marginBottom: 4 }}>{l}</div>
-            <div style={{ fontSize: 18, fontWeight: 700, color: c }}>{v}</div>
-          </div>
-        ))}
-      </div>
-
-      {/* Account list */}
-      <div style={{ ...S.card, overflow: 'hidden' }}>
-        <div style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>Your Accounts</div>
-          <Btn onClick={() => setShowAdd(s => !s)}><Plus size={13} /> Add Account</Btn>
-        </div>
-        {showAdd && (
-          <div style={{ padding: '14px 20px', background: T.surfaceHigh, borderBottom: `1px solid ${T.border}` }}>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 10 }}>
-              <div><label style={S.label}>Account Name</label>
-                <input value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} style={S.input} placeholder="e.g. PTSB Current" /></div>
-              <div><label style={S.label}>Type</label>
-                <select value={form.type} onChange={e => setForm(p=>({...p,type:e.target.value}))} style={S.input}>
-                  {accountTypes.map(t => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
-                </select></div>
-              <div><label style={S.label}>Currency</label>
-                <select value={form.currency} onChange={e => setForm(p=>({...p,currency:e.target.value}))} style={S.input}>
-                  {['EUR','GBP','USD','INR'].map(c => <option key={c}>{c}</option>)}
-                </select></div>
-              <div><label style={S.label}>Opening Balance</label>
-                <input type="number" step="0.01" value={form.openingBalance} onChange={e => setForm(p=>({...p,openingBalance:e.target.value}))} style={S.input} /></div>
-              <div style={{ gridColumn: 'span 2' }}><label style={S.label}>Note (optional)</label>
-                <input value={form.note} onChange={e => setForm(p=>({...p,note:e.target.value}))} style={S.input} placeholder="Account number, bank name..." /></div>
-            </div>
-            <Btn onClick={() => {
-              if (!form.name) return;
-              setAccounts(prev => [...prev, { ...form, id: Date.now().toString(), createdAt: today() }]);
-              setForm({ name: '', type: 'bank', currency: 'EUR', openingBalance: '0', note: '' });
-              setShowAdd(false);
-            }}><Plus size={13} /> Save Account</Btn>
-          </div>
-        )}
-        {accounts.length === 0 && (
-          <div style={{ padding: 40, textAlign: 'center', color: T.textDim, fontSize: 13 }}>
-            No accounts yet. Add your bank accounts, credit cards and loans to track net worth.
-          </div>
-        )}
-        {accounts.map(acc => {
-          const at = accountTypes.find(t => t.id === acc.type);
-          const bal = balances[acc.id] || 0;
-          const isLiability = ['credit','loan'].includes(acc.type);
-          return (
-            <div key={acc.id} style={{ padding: '14px 20px', borderBottom: `1px solid ${T.border}`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 12 }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-                <span style={{ fontSize: 20 }}>{at?.icon || '🏦'}</span>
-                <div>
-                  <div style={{ fontSize: 13, fontWeight: 700, color: T.text }}>{acc.name}</div>
-                  <div style={{ fontSize: 11, color: T.textDim }}>{at?.label} · {acc.currency}{acc.note ? ` · ${acc.note}` : ''}</div>
-                </div>
-              </div>
-              <div style={{ display: 'flex', alignItems: 'center', gap: 12 }}>
-                <div style={{ textAlign: 'right' }}>
-                  <div style={{ fontSize: 15, fontWeight: 700, color: isLiability ? T.red : bal >= 0 ? T.green : T.red }}>{fmt(bal, acc.currency)}</div>
-                  <div style={{ fontSize: 10, color: T.textDim }}>{isLiability ? 'outstanding' : 'balance'}</div>
-                </div>
-                <button onClick={() => setAccounts(prev => prev.filter(a => a.id !== acc.id))} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><Trash2 size={13} /></button>
-              </div>
-            </div>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-// ─── GOALS TAB ────────────────────────────────────────────────────────────────
-function GoalsTab() {
-  const [goals, setGoals] = useState(() => { try { return JSON.parse(localStorage.getItem('ft_goals') || '[]'); } catch { return []; } });
-  const [showAdd, setShowAdd] = useState(false);
-  const [form, setForm] = useState({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', currency: 'EUR', note: '' });
-  useEffect(() => { try { localStorage.setItem('ft_goals', JSON.stringify(goals)); } catch {} }, [goals]);
-
-  const addGoal = () => {
-    if (!form.name || !form.targetAmount) return;
-    setGoals(prev => [...prev, { ...form, id: Date.now().toString(), createdAt: today() }]);
-    setForm({ name: '', targetAmount: '', currentAmount: '0', targetDate: '', currency: 'EUR', note: '' });
-    setShowAdd(false);
-  };
-
-  const updateAmount = (id, val) => setGoals(prev => prev.map(g => g.id === id ? { ...g, currentAmount: val } : g));
-
-  return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
-      <div style={{ ...S.card, padding: '14px 20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <div>
-          <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Savings Goals</div>
-          <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>Track progress toward your financial targets</div>
-        </div>
-        <Btn onClick={() => setShowAdd(s => !s)}><Plus size={13} /> New Goal</Btn>
-      </div>
-
-      {showAdd && (
-        <div style={{ ...S.card, padding: '16px 20px' }}>
-          <div style={{ fontSize: 13, fontWeight: 700, color: T.accent, marginBottom: 12 }}>New Savings Goal</div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))', gap: 10, marginBottom: 12 }}>
-            <div style={{ gridColumn: 'span 2' }}><label style={S.label}>Goal Name</label>
-              <input value={form.name} onChange={e => setForm(p=>({...p,name:e.target.value}))} style={S.input} placeholder="e.g. Emergency Fund, Holiday, New Car" /></div>
-            <div><label style={S.label}>Target Amount (€)</label>
-              <input type="number" step="100" value={form.targetAmount} onChange={e => setForm(p=>({...p,targetAmount:e.target.value}))} style={S.input} /></div>
-            <div><label style={S.label}>Current Saved (€)</label>
-              <input type="number" step="10" value={form.currentAmount} onChange={e => setForm(p=>({...p,currentAmount:e.target.value}))} style={S.input} /></div>
-            <div><label style={S.label}>Target Date (optional)</label>
-              <input type="date" value={form.targetDate} onChange={e => setForm(p=>({...p,targetDate:e.target.value}))} style={S.input} /></div>
-            <div><label style={S.label}>Note</label>
-              <input value={form.note} onChange={e => setForm(p=>({...p,note:e.target.value}))} style={S.input} placeholder="Optional note" /></div>
-          </div>
-          <div style={{ display: 'flex', gap: 8 }}>
-            <Btn onClick={addGoal}><Plus size={13} /> Add Goal</Btn>
-            <Btn variant="ghost" onClick={() => setShowAdd(false)}>Cancel</Btn>
-          </div>
-        </div>
-      )}
-
-      {goals.length === 0 && !showAdd && (
-        <div style={{ ...S.card, padding: 40, textAlign: 'center', color: T.textDim, fontSize: 13 }}>
-          No goals yet. Set a savings goal to track your progress.
-        </div>
-      )}
-
-      {goals.map(g => {
-        const target = parseFloat(g.targetAmount) || 0;
-        const current = parseFloat(g.currentAmount) || 0;
-        const pct = target > 0 ? Math.min(100, (current / target) * 100) : 0;
-        const remaining = Math.max(0, target - current);
-        const daysLeft = g.targetDate ? Math.max(0, Math.round((new Date(g.targetDate) - new Date()) / 86400000)) : null;
-        const monthsLeft = daysLeft !== null ? Math.ceil(daysLeft / 30) : null;
-        const monthlyNeeded = monthsLeft && monthsLeft > 0 ? remaining / monthsLeft : null;
-
-        return (
-          <div key={g.id} style={{ ...S.card, padding: '16px 20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
-              <div>
-                <div style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{g.name}</div>
-                {g.note && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>{g.note}</div>}
-                {g.targetDate && <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Target: {dateStr(g.targetDate)}{daysLeft !== null ? ` (${daysLeft} days)` : ''}</div>}
-              </div>
-              <button onClick={() => setGoals(prev => prev.filter(x => x.id !== g.id))} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', padding: 4 }}><Trash2 size={13} /></button>
-            </div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 12 }}>
-              {[
-                { l: 'Saved', v: fmt(current, g.currency), c: T.green },
-                { l: 'Target', v: fmt(target, g.currency), c: T.text },
-                { l: 'Remaining', v: fmt(remaining, g.currency), c: T.accent },
-              ].map(({ l, v, c }) => (
-                <div key={l} style={{ background: T.surfaceHigh, borderRadius: 8, padding: '8px 12px', textAlign: 'center' }}>
-                  <div style={{ fontSize: 9, color: T.textDim, textTransform: 'uppercase', marginBottom: 2 }}>{l}</div>
-                  <div style={{ fontSize: 14, fontWeight: 700, color: c }}>{v}</div>
-                </div>
-              ))}
-            </div>
-            <div style={{ height: 8, background: T.border, borderRadius: 4, marginBottom: 6 }}>
-              <div style={{ height: '100%', width: pct + '%', background: pct >= 100 ? T.green : T.accent, borderRadius: 4, transition: 'width 0.4s' }} />
-            </div>
-            <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: 11, color: T.textDim, marginBottom: 10 }}>
-              <span>{pct.toFixed(1)}% complete</span>
-              {monthlyNeeded && <span>~{fmt(monthlyNeeded)}/month needed</span>}
-            </div>
-            <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
-              <span style={{ fontSize: 11, color: T.textMid }}>Update saved amount:</span>
-              <input type="number" step="10" defaultValue={g.currentAmount}
-                style={{ ...S.input, width: 110, fontSize: 12, padding: '5px 8px' }}
-                onKeyDown={e => { if (e.key === 'Enter') updateAmount(g.id, e.target.value); }}
-                onBlur={e => updateAmount(g.id, e.target.value)} />
-              <span style={{ fontSize: 10, color: T.textDim }}>Enter to save</span>
-            </div>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-// ─── EXPORT DATA UTILITY ──────────────────────────────────────────────────────
-function exportToCSV(transactions) {
-  const header = ['Date','Description','Amount','Type','Category','Nature','Currency'];
-  const rows = transactions.map(tx => [
-    tx.date, `"${(tx.description||'').replace(/"/g,'""')}"`,
-    tx.amount.toFixed(2), tx.isCredit ? 'Credit' : 'Debit',
-    `"${(tx.category||'').replace(/"/g,'""')}"`,
-    tx.nature || 'revenue', tx.currency || 'EUR'
-  ]);
-  const csv = [header, ...rows].map(r => r.join(',')).join('\n');
-  const blob = new Blob([csv], { type: 'text/csv' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `fintrack-export-${today()}.csv`; a.click();
-}
-
-function exportToJSON(data) {
-  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
-  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
-  a.download = `fintrack-backup-${today()}.json`; a.click();
-}
-
-// ─── ANALYTICS TAB ───────────────────────────────────────────────────────────
+// --- ANALYTICS TAB -----------------------------------------------------------
 function AnalyticsTab({ transactions, overheadGroups, committed }) {
   const [view, setView] = useState('overview'); // overview | categories | merchants | compare | savings
   const [selectedMonth, setSelectedMonth] = useState(null);
@@ -3864,7 +3419,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
   const [compareA, setCompareA] = useState('');
   const [compareB, setCompareB] = useState('');
 
-  // ── Core data derivations ──────────────────────────────────────────────────
+  // -- Core data derivations --------------------------------------------------
   const months = useMemo(() => {
     const map = {};
     transactions.forEach(tx => {
@@ -3979,7 +3534,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
         ))}
       </div>
 
-      {/* ── OVERVIEW ── */}
+      {/* -- OVERVIEW -- */}
       {view === 'overview' && (
         <>
           {/* Summary KPIs */}
@@ -4045,8 +3600,8 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
             return (
               <div style={{ ...S.card, padding: '16px 20px' }}>
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 14 }}>
-                  <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{m.label} — Detail</div>
-                  <button onClick={() => setSelectedMonth(null)} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', fontSize: 18 }}>×</button>
+                  <div className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{m.label} - Detail</div>
+                  <button onClick={() => setSelectedMonth(null)} style={{ background: 'none', border: 'none', color: T.textDim, cursor: 'pointer', fontSize: 18 }}>-</button>
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8, marginBottom: 16 }}>
                   {[
@@ -4117,12 +3672,12 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
         </>
       )}
 
-      {/* ── CATEGORIES ── */}
+      {/* -- CATEGORIES -- */}
       {view === 'categories' && (
         <>
           <div style={{ ...S.card, overflow: 'hidden' }}>
             <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
-              <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>All Categories — Total Spend</div>
+              <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>All Categories - Total Spend</div>
               <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Click any category to drill down</div>
             </div>
             {allCategories.map(({ cat, total, count, avg, monthCount, txs }) => {
@@ -4135,7 +3690,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <div>
                         <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{cat}</span>
-                        <span style={{ fontSize: 11, color: T.textDim, marginLeft: 8 }}>{count} transactions · {monthCount} month{monthCount !== 1 ? 's' : ''}</span>
+                        <span style={{ fontSize: 11, color: T.textDim, marginLeft: 8 }}>{count} transactions - {monthCount} month{monthCount !== 1 ? 's' : ''}</span>
                       </div>
                       <div style={{ textAlign: 'right' }}>
                         <div style={{ fontSize: 14, fontWeight: 700, color: T.red }}>{fmt(total)}</div>
@@ -4183,7 +3738,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
         </>
       )}
 
-      {/* ── MERCHANTS ── */}
+      {/* -- MERCHANTS -- */}
       {view === 'merchants' && (
         <div style={{ ...S.card, overflow: 'hidden' }}>
           <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
@@ -4215,7 +3770,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
         </div>
       )}
 
-      {/* ── COMPARE ── */}
+      {/* -- COMPARE -- */}
       {view === 'compare' && (
         <>
           <div style={{ ...S.card, padding: '16px 20px' }}>
@@ -4298,7 +3853,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
         </>
       )}
 
-      {/* ── SAVINGS RATE ── */}
+      {/* -- SAVINGS RATE -- */}
       {view === 'savings' && (
         <>
           <div style={{ ...S.card, padding: '16px 20px' }}>
@@ -4385,7 +3940,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
 }
 
 
-// ─── BUDGETING TAB ────────────────────────────────────────────────────────────
+// --- BUDGETING TAB ------------------------------------------------------------
 function BudgetingTab({ transactions, overheadGroups, committed }) {
   const [period, setPeriod] = useState("thisMonth");
   const [budgets, setBudgets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; } });
@@ -4428,7 +3983,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
       <div style={{ ...S.card, padding: "16px 20px" }}>
         <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: 12 }}>
           <div><div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Budget vs Actual</div>
-            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} · Click any row to set a budget</div></div>
+            <div style={{ fontSize: 12, color: T.textDim, marginTop: 2 }}>{periodLabel} - Click any row to set a budget</div></div>
           <select value={period} onChange={e => setPeriod(e.target.value)} style={{ ...S.input, width: "auto", fontSize: 12, padding: "6px 10px" }}>
             <option value="thisMonth">This Month</option><option value="lastMonth">Last Month</option>
             <option value="last3">Last 3 Months</option><option value="thisYear">This Year</option>
@@ -4457,8 +4012,8 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
             <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
-                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>— set</span>}</div>
-                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"—"}</div>
+                <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>- set</span>}</div>
+                <div style={{ fontSize: 13, color: comm>0?T.text:T.textDim }}>{comm>0?fmt(comm):"-"}</div>
                 <div style={{ fontSize: 13, fontWeight: 600, color: over?T.red:T.text }}>{fmt(actual)}</div>
                 <div>{budget>0?<Badge color={over?"red":pct>80?"accent":"green"}>{over?"Over":Math.round(pct)+"%"}</Badge>:actual>0?<Badge color="dim">No budget</Badge>:null}</div>
               </div>
@@ -4468,7 +4023,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
                   <span style={{fontSize:12,color:T.textMid}}>Monthly budget for <b style={{color:T.text}}>{group}</b>:</span>
                   <input type="number" placeholder="0.00" defaultValue={budgets[group]||""} style={{...S.input,width:120,fontSize:13,padding:"6px 10px"}}
                     onKeyDown={e=>{if(e.key==="Enter"){const v=parseFloat(e.target.value)||0;setBudgets(p=>v>0?{...p,[group]:v}:Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}if(e.key==="Escape")setEditingGroup(null);}} autoFocus />
-                  <span style={{fontSize:11,color:T.textDim}}>Enter to save · Esc to cancel</span>
+                  <span style={{fontSize:11,color:T.textDim}}>Enter to save - Esc to cancel</span>
                   {budgets[group]&&<button onClick={()=>{setBudgets(p=>Object.fromEntries(Object.entries(p).filter(([k])=>k!==group)));setEditingGroup(null);}} style={{background:"none",border:"none",color:T.textDim,cursor:"pointer",fontSize:11}}>Clear</button>}
                 </div>
               )}
@@ -4476,14 +4031,14 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
           );
         })}
       </div>
-      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>💡 Budgets are monthly targets. Click any row to set or edit.</div>
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>- Budgets are monthly targets. Click any row to set or edit.</div>
     </div>
   );
 }
 
-// ─── BUDGETING TAB ────────────────────────────────────────────────────────────
+// --- BUDGETING TAB ------------------------------------------------------------
 
-// ─── DEBT PLANNER TAB ────────────────────────────────────────────────────────
+// --- DEBT PLANNER TAB --------------------------------------------------------
 function DebtPlannerTab({ debts, setDebts }) {
   const [method, setMethod] = useState("avalanche"); // avalanche | snowball
   const [extraPayment, setExtraPayment] = useState("0");
@@ -4560,7 +4115,7 @@ function DebtPlannerTab({ debts, setDebts }) {
   const payoffDate = totalMonths > 0
     ? new Date(new Date().getFullYear(), new Date().getMonth() + totalMonths, 1)
         .toLocaleDateString("en-IE", { month: "long", year: "numeric" })
-    : "—";
+    : "-";
 
   if (activeDebts.length === 0) return (
     <div style={{ ...S.card, padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>
@@ -4588,7 +4143,7 @@ function DebtPlannerTab({ debts, setDebts }) {
         </div>
         <div style={{ display: "flex", gap: 12, alignItems: "center", flexWrap: "wrap" }}>
           <div style={{ flex: 1, minWidth: 180 }}>
-            <label style={S.label}>Extra monthly payment (€)</label>
+            <label style={S.label}>Extra monthly payment (-)</label>
             <input type="number" min="0" step="10" value={extraPayment} onChange={e => setExtraPayment(e.target.value)}
               style={{ ...S.input, borderColor: T.accent + "60" }} placeholder="0" />
             <div style={{ fontSize: 11, color: T.textDim, marginTop: 3 }}>Total payment: {fmt(totalMin + extra)}/mo</div>
@@ -4607,7 +4162,7 @@ function DebtPlannerTab({ debts, setDebts }) {
       {/* Payoff schedule */}
       <div style={{ ...S.card, overflow: "hidden" }}>
         <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
-          <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Payoff Order — {method === "avalanche" ? "Avalanche" : "Snowball"} Method</div>
+          <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Payoff Order - {method === "avalanche" ? "Avalanche" : "Snowball"} Method</div>
         </div>
         {schedule.map((d, i) => {
           const pct = Math.max(0, Math.min(100, 100 - (d.balance / (parseFloat(d.total) || d.balance)) * 100));
@@ -4622,7 +4177,7 @@ function DebtPlannerTab({ debts, setDebts }) {
                     {d.type === "bnpl" && <Badge color="blue">BNPL</Badge>}
                   </div>
                   <div style={{ fontSize: 11, color: T.textDim, marginTop: 4, marginLeft: 28 }}>
-                    Min payment ~{fmt(d.minPayment)}/mo · Payoff by <b style={{ color: T.green }}>{d.payoffDate}</b> ({d.payoffMonths} months)
+                    Min payment ~{fmt(d.minPayment)}/mo - Payoff by <b style={{ color: T.green }}>{d.payoffDate}</b> ({d.payoffMonths} months)
                   </div>
                 </div>
                 <div style={{ textAlign: "right", flexShrink: 0 }}>
@@ -4643,7 +4198,10 @@ function DebtPlannerTab({ debts, setDebts }) {
       </div>
 
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
-        💡 Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+        - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+      </div>
+          </div>
+        </main>
       </div>
     </div>
   );
