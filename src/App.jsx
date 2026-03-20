@@ -4,14 +4,31 @@ import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Pl
 // --- DESIGN TOKENS -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
 const T = {
-  bg:"#0A0C10",sidebar:"#0F1117",surface:"#161820",surfaceHigh:"#1E2028",
-  surfaceHover:"#23252F",border:"#252830",borderHover:"#32364A",
-  text:"#EEEDF0",textMid:"#8B8DA0",textDim:"#454760",
-  accent:"#F0A03C",accentDim:"#6B4518",accentSoft:"rgba(240,160,60,0.09)",
-  green:"#3DB87A",greenDim:"#143D28",greenSoft:"rgba(61,184,122,0.08)",
-  red:"#E05C5C",redDim:"#3D1818",redSoft:"rgba(224,92,92,0.08)",
-  blue:"#4A8FD4",blueDim:"#142640",blueSoft:"rgba(74,143,212,0.08)",
-  purple:"#8B6FD4",purpleDim:"#241840",purpleSoft:"rgba(139,111,212,0.08)",
+  bg: "#0A0C10",
+  sidebar: "#0F1117",
+  surface: "#161820",
+  surfaceHigh: "#1E2028",
+  surfaceHover: "#23252F",
+  border: "#252830",
+  borderHover: "#32364A",
+  text: "#EEEDF0",
+  textMid: "#8B8DA0",
+  textDim: "#454760",
+  accent: "#F0A03C",
+  accentDim: "#6B4518",
+  accentSoft: "rgba(240,160,60,0.09)",
+  green: "#3DB87A",
+  greenDim: "#143D28",
+  greenSoft: "rgba(61,184,122,0.08)",
+  red: "#E05C5C",
+  redDim: "#3D1818",
+  redSoft: "rgba(224,92,92,0.08)",
+  blue: "#4A8FD4",
+  blueDim: "#142640",
+  blueSoft: "rgba(74,143,212,0.08)",
+  purple: "#8B6FD4",
+  purpleDim: "#241840",
+  purpleSoft: "rgba(139,111,212,0.08)",
 };
 
 // --- CONSTANTS ----------------------------------------------------------------
@@ -644,15 +661,18 @@ function applyRules(description, rules) {
 
 // --- UI PRIMITIVES ------------------------------------------------------------
 const S = {
-  card:{background:"#161820",border:"1px solid #252830",borderRadius:14,boxShadow:"0 1px 3px rgba(0,0,0,0.3)"},
-  cardHigh:{background:"#1E2028",border:"1px solid #252830",borderRadius:14},
-  input:{background:"#1E2028",border:"1px solid #252830",borderRadius:8,color:"#EEEDF0",fontFamily:"inherit",fontSize:13,padding:"9px 12px",width:"100%",outline:"none"},
-  label:{fontSize:11,color:"#8B8DA0",textTransform:"uppercase",letterSpacing:"0.1em",fontWeight:600,display:"block",marginBottom:5},
-  btn:{
-    primary:{background:"#F0A03C",color:"#0A0C10",border:"none",borderRadius:8,padding:"9px 16px",fontSize:13,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
-    ghost:{background:"transparent",color:"#8B8DA0",border:"1px solid #252830",borderRadius:8,padding:"8px 14px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
-    danger:{background:"#3D1818",color:"#E05C5C",border:"1px solid rgba(224,92,92,0.25)",borderRadius:8,padding:"7px 12px",fontSize:12,cursor:"pointer",display:"flex",alignItems:"center",gap:4},
-    success:{background:"#143D28",color:"#3DB87A",border:"1px solid rgba(61,184,122,0.25)",borderRadius:8,padding:"8px 14px",fontSize:13,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6},
+  card: { background: "#161820", border: "1px solid #252830", borderRadius: 14, boxShadow: "0 1px 3px rgba(0,0,0,0.3)" },
+  cardHigh: { background: "#1E2028", border: "1px solid #252830", borderRadius: 14 },
+  input: {
+    background: "#1E2028", border: "1px solid #252830", borderRadius: 8,
+    color: "#EEEDF0", fontFamily: "inherit", fontSize: 13, padding: "9px 12px", width: "100%", outline: "none",
+  },
+  label: { fontSize: 11, color: "#8B8DA0", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600, display: "block", marginBottom: 5 },
+  btn: {
+    primary: { background: "#F0A03C", color: "#0A0C10", border: "none", borderRadius: 8, padding: "9px 16px", fontSize: 13, fontWeight: 700, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    ghost: { background: "transparent", color: "#8B8DA0", border: "1px solid #252830", borderRadius: 8, padding: "8px 14px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
+    danger: { background: "#3D1818", color: "#E05C5C", border: "1px solid rgba(224,92,92,0.25)", borderRadius: 8, padding: "7px 12px", fontSize: 12, cursor: "pointer", display: "flex", alignItems: "center", gap: 4 },
+    success: { background: "#143D28", color: "#3DB87A", border: "1px solid rgba(61,184,122,0.25)", borderRadius: 8, padding: "8px 14px", fontSize: 13, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 6 },
   },
 };
 
@@ -733,7 +753,7 @@ function StatCard({ label, value, sub, color = "text", trend, onClick, detail })
         {clickable && <div style={{ position: "absolute", top: 10, right: 12, fontSize: 10, color: T.textDim }}>{detail && (open ? "-" : "-")}</div>}
       </div>
       {open && detail && (
-        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: "1px solid #252830", gridColumn: "1 / -1" }}>
+        <div style={{ ...S.card, padding: "12px 16px", marginTop: -6, borderTop: `1px solid ${T.border}`, gridColumn: "1 / -1" }}>
           {detail}
         </div>
       )}
@@ -742,7 +762,7 @@ function StatCard({ label, value, sub, color = "text", trend, onClick, detail })
 }
 
 function Divider() {
-  return <div style={{ borderTop: "1px solid #252830", margin: "16px 0" }} />;
+  return <div style={{ borderTop: `1px solid ${T.border}`, margin: "16px 0" }} />;
 }
 
 // --- CATEGORY COMBO ----------------------------------------------------------
@@ -1231,28 +1251,26 @@ export default function App() {
   // -- RENDER --------------------------------------------------------------------
 
   return (
-    <div style={{ background: T.bg, minHeight: "100vh", color: T.text }}>
+    <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
       @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
-      *{box-sizing:border-box;margin:0;padding:0;}
-      html,body,#root{height:100%;}
-      body{background:#0A0C10;color:#EEEDF0;font-family:Inter,-apple-system,sans-serif;font-size:13px;line-height:1.5;-webkit-font-smoothing:antialiased;}
-      .hn{font-family:Syne,sans-serif;letter-spacing:-0.02em;}
-      .mono{font-family:JetBrains Mono,monospace;font-size:0.93em;}
-      .app-shell{display:flex;height:100vh;overflow:hidden;}
-      .sidebar{width:216px;min-width:216px;background:#0F1117;border-right:1px solid #252830;display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;}
-      .main-content{flex:1;overflow-y:auto;overflow-x:hidden;background:#0A0C10;}
-      .nav-item{display:flex;align-items:center;gap:10px;padding:9px 12px;border-radius:8px;margin:1px 8px;color:#8B8DA0;font-size:13px;font-weight:500;cursor:pointer;transition:all 0.15s;border:none;background:none;width:calc(100% - 16px);text-align:left;font-family:inherit;white-space:nowrap;}
-      .nav-item:hover{background:#23252F;color:#EEEDF0;}
-      .nav-item.active{background:rgba(240,160,60,0.09);color:#F0A03C;}
-      .nav-label{font-size:9px;color:#454760;text-transform:uppercase;letter-spacing:0.12em;font-weight:600;padding:12px 20px 4px;}
-      .row-hover:hover{background:#23252F !important;transition:background 0.12s;}
-      ::-webkit-scrollbar{width:4px;height:4px;}::-webkit-scrollbar-track{background:transparent;}::-webkit-scrollbar-thumb{background:#252830;border-radius:4px;}
-      input:focus,select:focus{outline:none;border-color:#F0A03C !important;box-shadow:0 0 0 3px rgba(240,160,60,0.09);}
-      @keyframes fadeIn{from{opacity:0;transform:translateY(4px);}to{opacity:1;transform:translateY(0);}}
-      .fade-in{animation:fadeIn 0.2s ease;}
-      @media(max-width:768px){.sidebar{display:none;}.mobile-nav{display:flex !important;}.app-shell{flex-direction:column;}.main-content{height:calc(100vh - 56px);overflow-y:auto;}.stat-grid{grid-template-columns:repeat(2,1fr) !important;}.two-col{grid-template-columns:1fr !important;}.hide-mobile{display:none !important;}}
-      @media(min-width:769px){.mobile-nav{display:none !important;}}
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #0A0C10; color: #EEEDF0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
+      .hn { font-family: Syne, sans-serif; letter-spacing: -0.02em; }
+      .mono { font-family: JetBrains Mono, monospace; font-size: 0.93em; }
+      .row-hover:hover { background: #23252F !important; transition: background 0.12s; }
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #252830; border-radius: 4px; }
+      input:focus, select:focus { outline: none; border-color: #F0A03C !important; box-shadow: 0 0 0 3px rgba(240,160,60,0.09); }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+      .fade-in { animation: fadeIn 0.2s ease; }
+      @media (max-width: 640px) {
+        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        .two-col { grid-template-columns: 1fr !important; }
+        .pad-page { padding: 12px 10px !important; }
+        .hide-mobile { display: none !important; }
+      }
     `}</style>
 
       {/* Viewport meta injected for mobile zoom fix */}
@@ -1305,21 +1323,21 @@ export default function App() {
             {/* KPI row - 2 cols on mobile, auto-fit on desktop */}
             <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: 10 }}>
               <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
-                detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
+                detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
               <StatCard label="EUR Expenses" value={fmt(eurTotals.expense)} color="red"
-                detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
+                detail={<div>{(() => { const catSpend = {}; transactions.filter(t => !t.isCredit && t.category).forEach(t => { catSpend[t.category] = (catSpend[t.category]||0)+t.amount; }); const top = Object.entries(catSpend).sort((a,b)=>b[1]-a[1]).slice(0,6); return top.length ? top.map(([c,v]) => <div key={c} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{c}</span><span style={{color:T.red,flexShrink:0}}>{fmt(v)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No categorised expenses yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top categories by spend</div></div>}
               />
               <StatCard label="Net Cash Flow" value={fmt(eurTotals.income - eurTotals.expense)} color={eurTotals.income - eurTotals.expense >= 0 ? "green" : "red"}
-                detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
+                detail={<div style={{fontSize:12}}>{[{l:"Total Income",v:fmt(eurTotals.income),c:T.green},{l:"Total Expenses",v:fmt(eurTotals.expense),c:T.red},{l:"Net Position",v:fmt(eurTotals.income-eurTotals.expense),c:eurTotals.income-eurTotals.expense>=0?T.green:T.red},{l:"Committed /mo",v:fmt(committedMonthly),c:T.accent},{l:"Discretionary Spend",v:fmt(eurTotals.expense-committedMonthly),c:T.textMid}].map(({l,v,c})=><div key={l} style={{display:"flex",justifyContent:"space-between",padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid}}>{l}</span><span style={{color:c,fontWeight:600}}>{v}</span></div>)}</div>}
               />
               <StatCard label="Committed /mo" value={fmt(committedMonthly)} color="accent"
-                detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
+                detail={<div>{committed.slice(0,6).map(c => { const rec=RECURRENCES.find(r=>r.v===c.recurrence); const mo=(parseFloat(c.amount)||0)*(rec?.ppy||0)/12; return <div key={c.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{c.name}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(mo)}/mo</span></div>; })}{committed.length===0&&<div style={{color:T.textDim,fontSize:12}}>No committed expenses yet</div>}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top committed expenses</div></div>}
               />
               {payroll && <StatCard label="Fortnightly Net" value={fmt(payroll.perNet)} color="text" sub={fmt(payroll.takeHome) + " /yr"} />}
               <StatCard label="Uncategorised" value={transactions.filter(t => !t.category).length} color={transactions.filter(t => !t.category).length > 0 ? "accent" : "dim"} sub="transactions"
                 onClick={() => setTab("transactions")}
-                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more - click to view all</div>}</div>}
+                detail={<div>{transactions.filter(t=>!t.category).slice(0,5).map(t=><div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:`1px solid ${T.border}`}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.accent,flexShrink:0}}>{fmt(t.amount)}</span></div>)}{transactions.filter(t=>!t.category).length>5&&<div style={{fontSize:11,color:T.textDim,marginTop:4}}>+{transactions.filter(t=>!t.category).length-5} more - click to view all</div>}</div>}
               />
             </div>
 
@@ -1564,7 +1582,7 @@ export default function App() {
             {/* Transaction ledger */}
             <div style={{ ...S.card, overflow: "hidden" }}>
               {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #252830", fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", gap: 8 }}>
+              <div style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: `1px solid ${T.border}`, fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", gap: 8 }}>
                 <div style={{ width: 80, flexShrink: 0 }}>Date</div>
                 <div style={{ flex: 1 }}>Description</div>
                 <div style={{ flexShrink: 0 }}>Amount</div>
@@ -1610,7 +1628,7 @@ export default function App() {
                 ))}
               </div>
               {filteredTx.length > 0 && (
-                <div style={{ padding: "10px 16px", borderTop: "1px solid #252830", display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim }}>
+                <div style={{ padding: "10px 16px", borderTop: `1px solid ${T.border}`, display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim }}>
                   <span>{filteredTx.length} transactions</span>
                   <span>In: <b style={{ color: T.green }}>{fmt(filteredTx.filter(t => t.isCredit).reduce((s, t) => s + t.amount, 0))}</b> &nbsp; Out: <b style={{ color: T.red }}>{fmt(filteredTx.filter(t => !t.isCredit).reduce((s, t) => s + t.amount, 0))}</b></span>
                 </div>
@@ -1720,7 +1738,7 @@ export default function App() {
                 const next = nextDates.find(d => d.effective >= today());
                 const isOpen = showProjectId === ce.id;
                 return (
-                  <div key={ce.id} style={{ borderBottom: "1px solid #252830" }}>
+                  <div key={ce.id} style={{ borderBottom: `1px solid ${T.border}` }}>
                     <div className="row-hover" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", gap: 10 }}>
                       <div style={{ flex: 1, minWidth: 0 }}>
                         <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
@@ -1777,7 +1795,7 @@ export default function App() {
                       <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
                         <span style={{ fontSize: 14, fontWeight: 700, color: T.text }}>{fmt(ce.amount, ce.currency)}</span>
                         <button onClick={() => setShowProjectId(isOpen ? null : ce.id)}
-                          style={{ background: isOpen ? T.blueDim : T.surfaceHigh, color: isOpen ? T.blue : T.textMid, border: "1px solid #252830", borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
+                          style={{ background: isOpen ? T.blueDim : T.surfaceHigh, color: isOpen ? T.blue : T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
                           {isOpen ? "Hide" : "Project"}
                         </button>
                         <button onClick={() => setCommitted(prev => prev.filter(x => x.id !== ce.id))}
@@ -1787,7 +1805,7 @@ export default function App() {
                       </div>
                     </div>
                     {isOpen && (
-                      <div style={{ padding: "12px 16px", background: T.bg, borderTop: "1px solid #252830" }}>
+                      <div style={{ padding: "12px 16px", background: T.bg, borderTop: `1px solid ${T.border}` }}>
                         <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8 }}>12-month projection &middot; * = moved past weekend or Irish bank holiday</div>
                         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6 }}>
                           {projectDates(ce.startDate, ce.recurrence, 12).map((pd, i) => {
@@ -1957,7 +1975,7 @@ export default function App() {
         {/* -- TIMELINE ---------------------------------------------------------- */}
         {tab === "timeline" && (
           <div style={{ ...S.card, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #252830" }}>
+            <div style={{ padding: "16px 20px", borderBottom: `1px solid ${T.border}` }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>60-Day Cash Flow</div>
               <div style={{ fontSize: 12, color: T.textDim }}>All income, committed costs and debt payments in the next 60 days, with Irish banking day adjustments applied.</div>
             </div>
@@ -1969,7 +1987,7 @@ export default function App() {
                 const now = new Date(); now.setHours(0, 0, 0, 0);
                 const daysAway = Math.ceil((ev.date - now) / 86400000);
                 return (
-                  <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: "1px solid #252830" }}>
+                  <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: `1px solid ${T.border}` }}>
                     <div style={{ width: 72, flexShrink: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: T.textMid }}>{ev.date.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</div>
                       <div style={{ fontSize: 10, color: T.textDim }}>{daysAway === 0 ? "Today" : "in " + daysAway + "d"}</div>
@@ -2097,10 +2115,9 @@ export default function App() {
           onDismiss={() => setLoanPrompt(null)}
         />
       )}
-          </div>
-        </main>
-      </div>
     </div>
+  );
+}
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
@@ -2212,7 +2229,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
       </div>
 
       {editing && (
-        <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
+        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <div>
@@ -2392,7 +2409,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               Next payment: {dateStr(form.dueDate)}
               {suggestedDueDate && suggestedDueDate !== form.dueDate && (
                 <button onClick={useSuggestedDate}
-                  style={{ marginLeft: 8, background: "none", border: "1px solid rgba(61,184,122,0.31)", borderRadius: 4, padding: "1px 6px", fontSize: 10, color: T.green, cursor: "pointer", fontFamily: "inherit" }}>
+                  style={{ marginLeft: 8, background: "none", border: `1px solid ${T.green}50`, borderRadius: 4, padding: "1px 6px", fontSize: 10, color: T.green, cursor: "pointer", fontFamily: "inherit" }}>
                   Better date: {dateStr(suggestedDueDate)}
                 </button>
               )}
@@ -2417,7 +2434,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
       {/* Edit form */}
       {editing && (
-        <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
+        <div style={{ padding: "14px 16px", borderTop: `1px solid ${T.border}` }}>
           <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
@@ -2449,7 +2466,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
                 style={{ ...S.input, marginBottom: 4 }} />
               {suggestedTerm && (
                 <button onClick={() => setForm(f => ({ ...f, termMonths: suggestedTerm.toString() }))}
-                  style={{ background: T.accentDim+"40", color: T.accent, border: "1px solid rgba(240,160,60,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                  style={{ background: T.accentDim+"40", color: T.accent, border: `1px solid ${T.accent}40`, borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
                   Calculate from payment: {suggestedTerm} months ({Math.round(suggestedTerm/12 * 10)/10} yrs)
                 </button>
               )}
@@ -2469,7 +2486,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
               </div>
               {suggestedDueDate && (
                 <button onClick={useSuggestedDate}
-                  style={{ marginTop: 4, background: T.greenDim, color: T.green, border: "1px solid rgba(61,184,122,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+                  style={{ marginTop: 4, background: T.greenDim, color: T.green, border: `1px solid ${T.green}40`, borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
                   Use cash-flow optimal: {dateStr(suggestedDueDate)}
                 </button>
               )}
@@ -2520,7 +2537,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Linked asset panel */}
         {linkedAsset && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.19)" }}>
+          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}30` }}>
             <div style={{ fontSize: 11, fontWeight: 600, color: T.green, marginBottom: 4 }}>Linked Asset: {linkedAsset.name}</div>
             <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 8 }}>
               <div>
@@ -2543,7 +2560,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Last payment confirmation with principal/interest split */}
         {lastPayment && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", fontSize: 11 }}>
+          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, fontSize: 11 }}>
             <div style={{ fontWeight: 600, color: T.green, marginBottom: 4 }}>
               Payment of {fmt(lastPayment.totalPayment, debt.currency)} applied on {dateStr(lastPayment.date)}
             </div>
@@ -2584,7 +2601,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
         {/* Suggested due date (when no date set) */}
         {!form.dueDate && suggestedDueDate && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
+          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: `1px solid ${T.green}40`, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
             <div>
               <div style={{ fontSize: 11, fontWeight: 600, color: T.green }}>Cash-flow optimal payment date</div>
               <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses - most headroom on {dateStr(suggestedDueDate)}.</div>
@@ -2600,7 +2617,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
         <div style={{ marginTop: 10 }}>
           {!showPayment ? (
             <button onClick={() => { setShowPayment(true); setEditing(false); }}
-              style={{ background: T.surfaceHigh, color: T.textMid, border: "1px solid #252830", borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
+              style={{ background: T.surfaceHigh, color: T.textMid, border: `1px solid ${T.border}`, borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
               + Record Manual Payment
             </button>
           ) : (
@@ -2652,7 +2669,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
   }
 
   return (
-    <div className="row-hover" style={{ borderBottom: "1px solid #252830", padding: "10px 14px" }}>
+    <div className="row-hover" style={{ borderBottom: `1px solid ${T.border}`, padding: "10px 14px" }}>
       {/* Line 1: date - description - nature badge - amount */}
       <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
         <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0, width: 80 }}>{dateStr(tx.date)}</span>
@@ -2976,7 +2993,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
       ) : (!dirty && rule.keywords && rule.keywords.filter(k => k).length > 0 && (
         <div style={{ padding: "4px 12px 8px", fontSize: 11, color: T.textDim }}>
           Created {rule.created} &middot; {rule.keywords.filter(k => k).map(k => (
-            <span key={k} style={{ background: T.bg, border: "1px solid #252830", borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
+            <span key={k} style={{ background: T.bg, border: `1px solid ${T.border}`, borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
           ))}
         </div>
       ))}
@@ -3491,8 +3508,8 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                         {m.net !== 0 && (
                           <div style={{ position: 'absolute', top: ((1 - Math.max(incPct, expPct) / 100) * 120) + 'px', left: 0, right: 0, height: 1, background: m.net >= 0 ? T.green + '40' : T.red + '40', borderTop: `1px dashed ${m.net >= 0 ? T.green : T.red}40` }} />
                         )}
-                        <div style={{ flex: 1, background: T.green + '70', borderRadius: '3px 3px 0 0', height: incPct + '%', minHeight: m.income > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? "1px solid #3DB87A" : 'none' }} />
-                        <div style={{ flex: 1, background: m.expenses > m.income ? T.red + '80' : T.red + '50', borderRadius: '3px 3px 0 0', height: expPct + '%', minHeight: m.expenses > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? "1px solid #E05C5C" : 'none' }} />
+                        <div style={{ flex: 1, background: T.green + '70', borderRadius: '3px 3px 0 0', height: incPct + '%', minHeight: m.income > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.green}` : 'none' }} />
+                        <div style={{ flex: 1, background: m.expenses > m.income ? T.red + '80' : T.red + '50', borderRadius: '3px 3px 0 0', height: expPct + '%', minHeight: m.expenses > 0 ? 2 : 0, transition: 'height 0.4s', border: isSel ? `1px solid ${T.red}` : 'none' }} />
                       </div>
                       <div style={{ fontSize: 9, color: isSel ? T.accent : T.textDim, textAlign: 'center', whiteSpace: 'nowrap', fontWeight: isSel ? 700 : 400 }}>{m.shortLabel}</div>
                       <div style={{ fontSize: 9, color: m.net >= 0 ? T.green : T.red, textAlign: 'center', fontWeight: 600 }}>{m.net >= 0 ? '+' : ''}{fmt(m.net)}</div>
@@ -3555,7 +3572,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
 
           {/* Month comparison table */}
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Month-by-Month</div>
             </div>
             <div style={{ overflowX: 'auto' }}>
@@ -3570,7 +3587,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                 <tbody>
                   {months.map(m => (
                     <tr key={m.key} onClick={() => setSelectedMonth(selectedMonth === m.key ? null : m.key)}
-                      style={{ borderBottom: "1px solid #252830", cursor: 'pointer', background: selectedMonth === m.key ? T.accent + '10' : 'transparent' }}>
+                      style={{ borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: selectedMonth === m.key ? T.accent + '10' : 'transparent' }}>
                       <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
                       <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
                       <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
@@ -3590,7 +3607,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
       {view === 'categories' && (
         <>
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>All Categories - Total Spend</div>
               <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>Click any category to drill down</div>
             </div>
@@ -3600,7 +3617,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               return (
                 <div key={cat}>
                   <div className="row-hover" onClick={() => setSelectedCat(isSel ? null : cat)}
-                    style={{ padding: '12px 20px', borderBottom: "1px solid #252830", cursor: 'pointer', background: isSel ? T.accent + '08' : 'transparent' }}>
+                    style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}`, cursor: 'pointer', background: isSel ? T.accent + '08' : 'transparent' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 6 }}>
                       <div>
                         <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{cat}</span>
@@ -3616,10 +3633,10 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                     </div>
                   </div>
                   {isSel && (
-                    <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: "1px solid #252830" }}>
+                    <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
                       <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8, fontWeight: 600 }}>RECENT TRANSACTIONS IN {cat.toUpperCase()}</div>
                       {txs.sort((a, b) => b.date?.localeCompare(a.date)).slice(0, 8).map(tx => (
-                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: "1px solid #252830" }}>
+                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: `1px solid ${T.border}` }}>
                           <div>
                             <div style={{ fontSize: 12, color: T.text }}>{tx.description}</div>
                             <div style={{ fontSize: 10, color: T.textDim }}>{tx.date}</div>
@@ -3655,7 +3672,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
       {/* -- MERCHANTS -- */}
       {view === 'merchants' && (
         <div style={{ ...S.card, overflow: 'hidden' }}>
-          <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
+          <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
             <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Top Merchants by Spend</div>
           </div>
           <div style={{ overflowX: 'auto' }}>
@@ -3669,7 +3686,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               </thead>
               <tbody>
                 {topMerchants.map(({ name, total, count, category }, i) => (
-                  <tr key={name} style={{ borderBottom: "1px solid #252830" }}>
+                  <tr key={name} style={{ borderBottom: `1px solid ${T.border}` }}>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.textDim, width: 30 }}>{i + 1}</td>
                     <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600, maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{name}</td>
                     <td style={{ padding: '9px 12px', color: T.textDim }}>{category || <span style={{ color: T.accent, fontSize: 11 }}>uncategorised</span>}</td>
@@ -3708,11 +3725,11 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
             const allCats = new Set([...Object.keys(mA.byCategory), ...Object.keys(mB.byCategory)]);
             return (
               <div style={{ ...S.card, overflow: 'hidden' }}>
-                <div style={{ padding: '12px 20px', borderBottom: "1px solid #252830" }}>
+                <div style={{ padding: '12px 20px', borderBottom: `1px solid ${T.border}` }}>
                   <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>{mA.label} vs {mB.label}</div>
                 </div>
                 {/* Totals */}
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: "1px solid #252830" }}>
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 0, borderBottom: `1px solid ${T.border}` }}>
                   {[
                     { l: 'Metric', vA: mA.label, vB: mB.label, header: true },
                     { l: 'Income', vA: fmt(mA.income), vB: fmt(mB.income), dif: mB.income - mA.income, isGoodUp: true },
@@ -3721,9 +3738,9 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                     { l: 'Savings %', vA: mA.savingsRate.toFixed(1) + '%', vB: mB.savingsRate.toFixed(1) + '%', dif: mB.savingsRate - mA.savingsRate, isGoodUp: true },
                   ].map(({ l, vA, vB, dif, isGoodUp, header }) => (
                     <div key={l} style={{ display: 'contents' }}>
-                      <div style={{ padding: '10px 16px', fontSize: header ? 10 : 12, color: header ? T.textDim : T.textMid, fontWeight: header ? 600 : 400, borderBottom: "1px solid #252830", textTransform: header ? 'uppercase' : 'none' }}>{l}</div>
-                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: T.text, borderBottom: "1px solid #252830", borderLeft: "1px solid #252830", textAlign: 'right' }}>{vA}</div>
-                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: dif !== undefined ? (isGoodUp ? (dif >= 0 ? T.green : T.red) : (dif <= 0 ? T.green : T.red)) : T.text, borderBottom: "1px solid #252830", borderLeft: "1px solid #252830", textAlign: 'right' }}>
+                      <div style={{ padding: '10px 16px', fontSize: header ? 10 : 12, color: header ? T.textDim : T.textMid, fontWeight: header ? 600 : 400, borderBottom: `1px solid ${T.border}`, textTransform: header ? 'uppercase' : 'none' }}>{l}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>{vA}</div>
+                      <div style={{ padding: '10px 12px', fontSize: 12, fontWeight: 700, color: dif !== undefined ? (isGoodUp ? (dif >= 0 ? T.green : T.red) : (dif <= 0 ? T.green : T.red)) : T.text, borderBottom: `1px solid ${T.border}`, borderLeft: `1px solid ${T.border}`, textAlign: 'right' }}>
                         {vB}{dif !== undefined && dif !== 0 && <span style={{ fontSize: 10, marginLeft: 4 }}>({dif >= 0 ? '+' : ''}{typeof dif === 'number' && Math.abs(dif) < 200 ? dif.toFixed(1) + (l.includes('%') ? 'pp' : '') : fmt(Math.abs(dif))})</span>}
                       </div>
                     </div>
@@ -3819,7 +3836,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
           </div>
           {/* Month by month savings table */}
           <div style={{ ...S.card, overflow: 'hidden' }}>
-            <div style={{ padding: '12px 20px 8px', borderBottom: "1px solid #252830" }}>
+            <div style={{ padding: '12px 20px 8px', borderBottom: `1px solid ${T.border}` }}>
               <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Monthly Savings Breakdown</div>
             </div>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 12 }}>
@@ -3832,7 +3849,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
               </thead>
               <tbody>
                 {months.map(m => (
-                  <tr key={m.key} style={{ borderBottom: "1px solid #252830" }}>
+                  <tr key={m.key} style={{ borderBottom: `1px solid ${T.border}` }}>
                     <td style={{ padding: '9px 12px', color: T.text, fontWeight: 600 }}>{m.label}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.green }}>{fmt(m.income)}</td>
                     <td style={{ padding: '9px 12px', textAlign: 'right', color: T.red }}>{fmt(m.expenses)}</td>
@@ -3913,7 +3930,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
         </div>
       </div>
       <div style={{ ...S.card, overflow: "hidden" }}>
-        <div style={{ padding: "12px 20px", borderBottom: "1px solid #252830", display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
+        <div style={{ padding: "12px 20px", borderBottom: `1px solid ${T.border}`, display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8 }}>
           {["Category Group","Budget/Mo","Committed","Actual","Status"].map(h=>(
             <div key={h} style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>{h}</div>
           ))}
@@ -3923,7 +3940,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
           const budget=parseFloat(budgets[group])||0, actual=actualByGroup[group]||0, comm=committedByGroup[group]||0;
           const pct=budget>0?Math.min(100,(actual/budget)*100):0, over=budget>0&&actual>budget;
           return (
-            <div key={group} className="row-hover" style={{ borderBottom: "1px solid #252830" }}>
+            <div key={group} className="row-hover" style={{ borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: "grid", gridTemplateColumns: "1fr 100px 100px 100px 80px", gap: 8, padding: "12px 20px", alignItems: "center", cursor: "pointer" }} onClick={() => setEditingGroup(editingGroup===group?null:group)}>
                 <div style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{group}</div>
                 <div style={{ fontSize: 13, color: budget>0?T.accent:T.textDim }}>{budget>0?fmt(budget):<span style={{fontSize:11}}>- set</span>}</div>
@@ -4075,13 +4092,13 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       {/* Payoff schedule */}
       <div style={{ ...S.card, overflow: "hidden" }}>
-        <div style={{ padding: "12px 20px 8px", borderBottom: "1px solid #252830" }}>
+        <div style={{ padding: "12px 20px 8px", borderBottom: `1px solid ${T.border}` }}>
           <div className="hn" style={{ fontSize: 13, fontWeight: 700 }}>Payoff Order - {method === "avalanche" ? "Avalanche" : "Snowball"} Method</div>
         </div>
         {schedule.map((d, i) => {
           const pct = Math.max(0, Math.min(100, 100 - (d.balance / (parseFloat(d.total) || d.balance)) * 100));
           return (
-            <div key={d.id} style={{ padding: "14px 20px", borderBottom: "1px solid #252830" }}>
+            <div key={d.id} style={{ padding: "14px 20px", borderBottom: `1px solid ${T.border}` }}>
               <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: 8 }}>
                 <div>
                   <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
@@ -4110,5 +4127,12 @@ function DebtPlannerTab({ debts, setDebts }) {
           );
         })}
       </div>
+
+      <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
+        - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
+          </div>
+        </main>
+      </div>
+    </div>
   );
 }
