@@ -29,8 +29,6 @@ const T = {
   purple: "#8B6FD4",
   purpleDim: "#241840",
   purpleSoft: "rgba(139,111,212,0.08)",
-  teal: "#2EC4B6",
-  tealDim: "#0D3D39",
 };
 
 // --- CONSTANTS ----------------------------------------------------------------
@@ -1255,136 +1253,66 @@ export default function App() {
   return (
     <div style={{ fontFamily: "'DM Mono', 'Fira Code', 'Courier New', monospace", background: T.bg, minHeight: "100vh", color: T.text }}>
       <style>{`
-        @import url('https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@600;700;800&display=swap');
-        * { box-sizing: border-box; margin: 0; padding: 0; }
-        html, body { width: 100%; overflow-x: hidden; }
-        ::-webkit-scrollbar { width: 4px; height: 4px; }
-        ::-webkit-scrollbar-track { background: ${T.bg}; }
-        ::-webkit-scrollbar-thumb { background: ${T.border}; border-radius: 4px; }
-        select option { background: ${T.surface}; color: ${T.text}; }
-        input[type=date]::-webkit-calendar-picker-indicator { filter: invert(0.6); cursor: pointer; }
-        .hn { font-family: 'Syne', sans-serif; }
-        .tab-pill:hover { background: ${T.surfaceHigh} !important; color: ${T.text} !important; }
-        .row-hover:hover { background: ${T.surfaceHigh} !important; }
-        /* Responsive two-col: stacks below 600px */
-        .two-col { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-        @media (max-width: 600px) {
-          .two-col { grid-template-columns: 1fr !important; }
-          .hide-mobile { display: none !important; }
-          .pad-page { padding: 14px 12px !important; }
-          .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
-        }
-      `}</style>
+      @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=Syne:wght@700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+      * { box-sizing: border-box; margin: 0; padding: 0; }
+      body { background: #0A0C10; color: #EEEDF0; font-family: Inter, -apple-system, BlinkMacSystemFont, sans-serif; -webkit-font-smoothing: antialiased; }
+      .hn { font-family: Syne, sans-serif; letter-spacing: -0.02em; }
+      .mono { font-family: JetBrains Mono, monospace; font-size: 0.93em; }
+      .row-hover:hover { background: #23252F !important; transition: background 0.12s; }
+      ::-webkit-scrollbar { width: 4px; height: 4px; }
+      ::-webkit-scrollbar-track { background: transparent; }
+      ::-webkit-scrollbar-thumb { background: #252830; border-radius: 4px; }
+      input:focus, select:focus { outline: none; border-color: #F0A03C !important; box-shadow: 0 0 0 3px rgba(240,160,60,0.09); }
+      @keyframes fadeIn { from { opacity: 0; transform: translateY(4px); } to { opacity: 1; transform: translateY(0); } }
+      .fade-in { animation: fadeIn 0.2s ease; }
+      @media (max-width: 640px) {
+        .stat-grid { grid-template-columns: repeat(2, 1fr) !important; }
+        .two-col { grid-template-columns: 1fr !important; }
+        .pad-page { padding: 12px 10px !important; }
+        .hide-mobile { display: none !important; }
+      }
+    `}</style>
 
       {/* Viewport meta injected for mobile zoom fix */}
       {(() => { try { if (!document.querySelector('meta[name=viewport]')) { const m = document.createElement('meta'); m.name = 'viewport'; m.content = 'width=device-width, initial-scale=1, maximum-scale=1'; document.head.appendChild(m); } } catch(e){} return null; })()}
 
-      {/* -- SIDEBAR LAYOUT -- */}
-      <div className="app-shell">
-
-        {/* SIDEBAR desktop */}
-        <aside className="sidebar">
-          <div style={{ padding: "18px 16px 14px", borderBottom: "1px solid #252830" }}>
-            <div className="hn" style={{ fontSize: 20, fontWeight: 800, letterSpacing: "-0.03em", color: "#EEEDF0" }}>
-              Fin<span style={{ color: "#F0A03C" }}>Track</span>
-              <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, marginLeft: 4 }}>IE</span>
-            </div>
+      {/* -- TOP BAR -- */}
+      <div style={{ background: T.surface, borderBottom: `1px solid ${T.border}`, position: "sticky", top: 0, zIndex: 100 }}>
+        <div style={{ maxWidth: 1280, margin: "0 auto", padding: "0 14px" }}>
+          <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", paddingTop: 12, paddingBottom: 8 }}>
+            <span className="hn" style={{ fontSize: 18, fontWeight: 800, color: T.text, letterSpacing: "-0.03em", flexShrink: 0 }}>
+              Fin<span style={{ color: "#F0A03C" }}>Track</span> <span style={{ color: "#454760", fontWeight: 600, fontSize: 11, letterSpacing: "0.05em" }}>IE</span>
+            </span>
             {nextPayday && payroll && (
-              <div style={{ marginTop: 10, padding: "8px 10px", background: "rgba(240,160,60,0.09)", borderRadius: 8, border: "1px solid rgba(240,160,60,0.2)" }}>
-                <div style={{ fontSize: 9, color: "#F0A03C", textTransform: "uppercase", letterSpacing: "0.1em", fontWeight: 600 }}>Next Payday</div>
-                <div style={{ fontSize: 12, color: "#EEEDF0", marginTop: 2 }}>{dateStr(nextPayday)}</div>
-                <div className="mono" style={{ fontSize: 13, fontWeight: 600, color: "#F0A03C" }}>{fmt(payroll.perNet)}</div>
+              <div style={{ textAlign: "right", minWidth: 0 }}>
+                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Next pay</div>
+                <div style={{ fontSize: 13, fontWeight: 600, color: T.accent, whiteSpace: "nowrap" }}>{dateStr(nextPayday)} - {fmt(payroll.perNet)}</div>
               </div>
             )}
           </div>
-          <nav style={{ padding: "8px 0", flex: 1 }}>
-            <div className="nav-label">Main</div>
-            {[
-              { id: "dashboard", label: "Overview", icon: BarChart2 },
-              { id: "transactions", label: "Transactions", icon: Layers },
-              { id: "accounts", label: "Accounts", icon: CreditCard },
-            ].map(t => { const Icon = t.icon; return (
-              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
-                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-                <span>{t.label}</span>
-                {t.id === "transactions" && importQueue.length > 0 && (
-                  <span style={{ marginLeft: "auto", background: "#E05C5C", color: "#fff", borderRadius: 10, padding: "1px 6px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
-                )}
-              </button>
-            ); })}
-            <div className="nav-label" style={{ marginTop: 8 }}>Planning</div>
-            {[
-              { id: "budgeting", label: "Budgeting", icon: Target },
-              { id: "committed", label: "Committed", icon: Calendar },
-              { id: "goals", label: "Goals", icon: Target },
-            ].map(t => { const Icon = t.icon; return (
-              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
-                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-                <span>{t.label}</span>
-              </button>
-            ); })}
-            <div className="nav-label" style={{ marginTop: 8 }}>Insights</div>
-            {[
-              { id: "analytics", label: "Analytics", icon: TrendingDown },
-              { id: "timeline", label: "Timeline", icon: Clock },
-            ].map(t => { const Icon = t.icon; return (
-              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
-                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-                <span>{t.label}</span>
-              </button>
-            ); })}
-            <div className="nav-label" style={{ marginTop: 8 }}>Debt</div>
-            {[
-              { id: "debt", label: "Debt Tracker", icon: CreditCard },
-              { id: "planner", label: "Debt Planner", icon: TrendingUp },
-            ].map(t => { const Icon = t.icon; return (
-              <button key={t.id} className={"nav-item" + (tab === t.id ? " active" : "")} onClick={() => setTab(t.id)}>
-                <Icon size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-                <span>{t.label}</span>
-              </button>
-            ); })}
-          </nav>
-          <div style={{ padding: "10px 8px", borderTop: "1px solid #252830" }}>
+          <div style={{ display: "flex", gap: 2, overflowX: "auto", WebkitOverflowScrolling: "touch", scrollbarWidth: "none", paddingBottom: 6 }}>
+            {TABS.map(t => {
+              const Icon = t.icon;
+              const active = tab === t.id;
+              return (
+                <button key={t.id} className="tab-pill" onClick={() => setTab(t.id)}
+                  style={{ display: "flex", alignItems: "center", gap: 5, padding: "6px 11px", borderRadius: 8, border: "none", cursor: "pointer", fontSize: 11, fontWeight: active ? 700 : 400, whiteSpace: "nowrap", background: active ? "#F0A03C" : "transparent", color: active ? "#0A0C10" : "#8B8DA0", fontFamily: "inherit", flexShrink: 0, borderRadius: 8, transition: "all 0.15s" }}>
+                  <Icon size={11} />
+                  {t.label}
+                  {t.id === "transactions" && importQueue.length > 0 && (
+                    <span style={{ background: T.red, color: "#fff", borderRadius: 8, padding: "0 5px", fontSize: 9, fontWeight: 700 }}>{importQueue.length}</span>
+                  )}
+                </button>
+              );
+            })}
+          </div>
+          <div style={{ display: "flex", justifyContent: "flex-end", paddingBottom: 6 }}>
             <DriveSync />
-            <button className={"nav-item" + (tab === "settings" ? " active" : "")} onClick={() => setTab("settings")} style={{ marginTop: 4 }}>
-              <Settings size={14} style={{ opacity: 0.8, flexShrink: 0 }} />
-              <span>Settings</span>
-            </button>
           </div>
-        </aside>
-
-        {/* MOBILE NAV BAR */}
-        <div className="mobile-nav" style={{ position: "fixed", bottom: 0, left: 0, right: 0, zIndex: 200, background: "#0F1117", borderTop: "1px solid #252830", padding: "4px 0", justifyContent: "space-around", alignItems: "center" }}>
-          {[
-            { id: "dashboard", icon: BarChart2, label: "Home" },
-            { id: "transactions", icon: Layers, label: "Txns" },
-            { id: "analytics", icon: TrendingDown, label: "Stats" },
-            { id: "committed", icon: Calendar, label: "Bills" },
-            { id: "debt", icon: CreditCard, label: "Debt" },
-            { id: "settings", icon: Settings, label: "More" },
-          ].map(t => { const Icon = t.icon; const active = tab === t.id; return (
-            <button key={t.id} onClick={() => setTab(t.id)}
-              style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 2, padding: "6px 8px", border: "none", background: "none", cursor: "pointer", color: active ? "#F0A03C" : "#454760", fontFamily: "inherit", minWidth: 44 }}>
-              <Icon size={17} />
-              <span style={{ fontSize: 9, fontWeight: active ? 700 : 400 }}>{t.label}</span>
-            </button>
-          ); })}
         </div>
+      </div>
 
-        {/* MAIN CONTENT */}
-        <main className="main-content" style={{ paddingBottom: 70 }}>
-          <div style={{ padding: "20px 24px 4px", borderBottom: "1px solid #252830", display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-            <div>
-              <h1 className="hn" style={{ fontSize: 22, fontWeight: 800, color: "#EEEDF0" }}>
-                {TABS.find(t => t.id === tab) ? TABS.find(t => t.id === tab).label : "Overview"}
-              </h1>
-              <div style={{ fontSize: 11, color: "#454760", marginTop: 2 }}>
-                {new Date().toLocaleDateString("en-IE", { weekday: "long", year: "numeric", month: "long", day: "numeric" })}
-              </div>
-            </div>
-            <div className="hide-mobile"><DriveSync /></div>
-          </div>
-          <div style={{ padding: "20px 24px", display: "flex", flexDirection: "column", gap: 16 }}>
+      <div className="pad-page" style={{ maxWidth: 1280, margin: "0 auto", padding: "20px 14px", display: "flex", flexDirection: "column", gap: 16 }}>
 
         {/* -- DASHBOARD ---------------------------------------------------------- */}
         {tab === "dashboard" && (
@@ -2185,6 +2113,8 @@ export default function App() {
         />
       )}
     </div>
+  );
+}
 // --- PMT CALCULATION ---------------------------------------------------------
 // Standard loan amortisation: monthly payment given balance, annual rate, months
 // Periods per year by frequency
@@ -4197,9 +4127,6 @@ function DebtPlannerTab({ debts, setDebts }) {
 
       <div style={{ fontSize: 12, color: T.textDim, padding: "0 4px" }}>
         - Set interest rates on your debts in the Debt tab for accurate projections. Min payments are estimated at 2% of balance if not set.
-      </div>
-          </div>
-        </main>
       </div>
     </div>
   );
