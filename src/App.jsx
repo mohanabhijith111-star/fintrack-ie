@@ -1440,7 +1440,7 @@ export default function App() {
             {committed.length > 0 && (
               <div style={{ ...S.card, padding: 20 }}>
                 <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 14, color: T.text }}>Committed Costs Overview</div>
-                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+                <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10 }}>
                   {(() => {
                     const byGroup = {};
                     committed.filter(c => c.currency === "EUR").forEach(c => {
@@ -1749,7 +1749,7 @@ export default function App() {
 
             {/* Monthly summary */}
             {committed.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 10 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10 }}>
                 {(() => {
                   const byGroup = {};
                   committed.filter(c => c.currency === "EUR").forEach(c => {
@@ -1853,7 +1853,7 @@ export default function App() {
                     {isOpen && (
                       <div style={{ padding: "12px 16px", background: T.bg, borderTop: "1px solid #252830" }}>
                         <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8 }}>12-month projection &middot; * = moved past weekend or Irish bank holiday</div>
-                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 6 }}>
+                        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 6 }}>
                           {projectDates(ce.startDate, ce.recurrence, 12).map((pd, i) => {
                             const past = pd.effective < today();
                             return (
@@ -1900,7 +1900,7 @@ export default function App() {
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Asset / Savings Account</div>
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Track savings accounts, share accounts, deposits and investments. A Credit Union share account is an asset.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 12 }}>
                 <div style={{ gridColumn: "span 2" }}>
                   <Input label="Account / Asset name" value={assetForm.name} onChange={e => setAssetForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. Credit Union Shares" />
                 </div>
@@ -1951,7 +1951,7 @@ export default function App() {
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>
                 Sorted by Avalanche method. Monthly repayment auto-calculated. You can link a loan to a share account (e.g. CU share-secured loan).
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginBottom: 12 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 12 }}>
                 <div style={{ gridColumn: "span 2" }}>
                   <Input label="Loan name" value={debtForm.name} onChange={e => setDebtForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. CU Share Loan" />
                 </div>
@@ -2287,7 +2287,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
 
       {editing && (
         <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <div>
               <label style={S.label}>Current balance</label>
@@ -2318,7 +2318,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
       )}
 
       <div style={{ padding: "0 16px 14px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(110px, 1fr))", gap: 10 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10 }}>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Balance</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.green }}>{fmt(bal, asset.currency)}</div>
@@ -2502,7 +2502,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
       {/* Edit form */}
       {editing && (
         <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 10 }}>
+          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
             <Input label="Name" value={form.name} onChange={fld("name")} />
             <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
             <div>
@@ -2565,7 +2565,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 
       {/* Stats */}
       <div style={{ padding: "0 16px 14px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(120px, 1fr))", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 12 }}>
           <div>
             <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Balance</div>
             <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>{fmt(balance, debt.currency)}</div>
@@ -2690,7 +2690,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
           ) : (
             <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "12px 14px" }}>
               <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 10 }}>Record a payment</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(130px, 1fr))", gap: 8, marginBottom: 8 }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
                 <Input label="Amount" type="number" value={paymentAmt}
                   onChange={e => setPaymentAmt(e.target.value)} placeholder={fmt(periodicPayment || 0)} />
                 <Input label="Note (optional)" value={paymentNote}
@@ -2889,7 +2889,7 @@ function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
   return (
     <div>
       <div className="hn" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.06em" }}>Add Transaction Manually</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))", gap: 8, marginBottom: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
         <Input label="Date" type="date" value={form.date} onChange={set("date")} />
         <div style={{ gridColumn: "span 2" }}>
           <Input label="Description" value={form.description} onChange={set("description")} placeholder="e.g. Lidl weekly shop" />
@@ -2953,7 +2953,7 @@ function AddOverheadForm({ onAdd }) {
   }
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 8 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
         <div style={{ gridColumn: "span 2" }}>
           <Input label="Category name" value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder="e.g. ESB Smart Meter" />
         </div>
@@ -3444,7 +3444,7 @@ function AccountsTab({ transactions, debts }) {
 
   return (
     <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: 10 }}>
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(90px, 1fr))", gap: 10 }}>
         {[
           { l: "Net Worth", v: fmt(netWorth), c: netWorth >= 0 ? T.green : T.red },
           { l: "Total Assets", v: fmt(totalAssets), c: T.green },
@@ -3464,7 +3464,7 @@ function AccountsTab({ transactions, debts }) {
         </div>
         {showAdd && (
           <div style={{ padding: "14px 20px", background: T.surfaceHigh, borderBottom: "1px solid #252830" }}>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(150px, 1fr))", gap: 10, marginBottom: 10 }}>
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 10 }}>
               <Input label="Account Name" value={form.name} onChange={e => setForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. PTSB Current" />
               <Select label="Type" value={form.type} onChange={e => setForm(p => ({ ...p, type: e.target.value }))}>
                 {TYPES.map(t => <option key={t.id} value={t.id}>{t.icon} {t.label}</option>)}
@@ -3828,7 +3828,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
       {view === 'overview' && (
         <>
           {/* Summary KPIs */}
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 10 }}>
             {[
               { l: 'Avg Income/mo', v: fmt(avgMonthly.income), c: T.green },
               { l: 'Avg Spend/mo', v: fmt(avgMonthly.expenses), c: T.red },
@@ -4149,7 +4149,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
           <div style={{ ...S.card, padding: '16px 20px' }}>
             <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 4 }}>Savings Analysis</div>
             <div style={{ fontSize: 12, color: T.textDim, marginBottom: 16 }}>How much of your income you're saving each month</div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(140px, 1fr))', gap: 10, marginBottom: 20 }}>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(90px, 1fr))', gap: 10, marginBottom: 20 }}>
               {(() => {
                 const posMonths = months.filter(m => m.savingsRate > 0);
                 const avgRate = months.length ? months.reduce((s, m) => s + m.savingsRate, 0) / months.length : 0;
