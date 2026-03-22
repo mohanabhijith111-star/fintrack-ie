@@ -921,7 +921,7 @@ export default function App() {
 
   const timeline60 = useMemo(() => {
     const now = new Date(); now.setHours(0, 0, 0, 0);
-    const lastTxDate = transactions.length ? new Date(Math.max(...transactions.map(t=>new Date(t.date+'T12:00:00').getTime()))) : now; const end = new Date(lastTxDate); end.setFullYear(end.getFullYear()+1);
+    const lastTxDate = transactions.length ? new Date(transactions.reduce((a,b) => a.date > b.date ? a : b).date + "T12:00:00") : now; const end = new Date(lastTxDate); end.setFullYear(end.getFullYear()+1);
     const events = [];
     if (firstPayday && payroll) {
       getPaydays(firstPayday, taxProfile.payFrequency, 52).forEach(d => {
@@ -946,8 +946,7 @@ export default function App() {
         // Check if actual salary already received for this period (within 5 days)
         const alreadyReceived = salaryTxs.some(t => Math.abs(new Date(t.date)-next) < 5*86400000);
         if (next >= now && !alreadyReceived) {
-          const adjusted = next.toISOString().split("T")[0];
-          events.push({ date: new Date(next+'T12:00:00'), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
+          events.push({ date: new Date(next), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
         }
       }
     }
