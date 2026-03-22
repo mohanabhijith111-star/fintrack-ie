@@ -3577,7 +3577,7 @@ function GoalsTab() {
 
 // --- SPLIT TRANSACTION MODAL --------------------------------------------------
 function CategoryPromptModal({ prompt, onConfirm, onDismiss }) {
-  const [items, setItems] = React.useState(prompt.matches);
+  const [items, setItems] = useState(prompt.matches);
   const toggle = id => setItems(prev=>prev.map(m=>m.tx.id===id?{...m,checked:!m.checked}:m));
   const allChecked = items.every(m=>m.checked);
   const toggleAll = () => setItems(prev=>prev.map(m=>({...m,checked:!allChecked})));
