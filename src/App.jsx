@@ -1009,7 +1009,7 @@ export default function App() {
     const matches = kw ? transactions.filter(t => t.id !== id && t.description.toLowerCase().includes(kw) && !t.ruleExcluded) : [];
     setTransactions(prev => prev.map(t => t.id === id ? {...t, category, nature} : t));
     if (kw) { setRules(prev => { const ex=prev.findIndex(r=>r.keywords.some(k=>k===kw)); if(ex>=0){const n=[...prev];n[ex]={...n[ex],category};return n;} return [...prev,{id:Date.now().toString(),keywords:[kw],category,created:today()}]; }); }
-    if (matches.length > 0) { setCategoryPrompt({id, category, nature, kw, matches: matches.map(t=>({tx:t,checked:true}))}); return; }
+    if (matches.length > 0) { setCategoryPrompt({id, category, nature, kw, matches: matches.slice(0,50).map(t=>({tx:t,checked:true}))}); return; }
     if (LOAN_RECEIVED_CATS.has(category)||LOAN_REPAYMENT_CATS.has(category)) { setLoanPrompt({tx:{...tx,category,nature},type:LOAN_RECEIVED_CATS.has(category)?'received':'repayment',count:1}); }
   }
 
@@ -3596,7 +3596,7 @@ function CategoryPromptModal({ prompt, onConfirm, onDismiss }) {
             <div key={tx.id} onClick={()=>toggle(tx.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,background:checked?'rgba(240,160,60,0.06)':T.bg,border:'1px solid '+(checked?'rgba(240,160,60,0.25)':'#252830'),cursor:'pointer'}}>
               <input type='checkbox' checked={checked} onChange={()=>toggle(tx.id)} onClick={e=>e.stopPropagation()} style={{accentColor:T.accent,flexShrink:0}} />
               <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</div><div style={{fontSize:10,color:T.textDim}}>{tx.date} &bull; was: {tx.category||'Uncategorised'}</div></div>
-              <span style={{fontSize:12,fontWeight:700,color:T.red,flexShrink:0}}>-{fmt(tx.amount,tx.currency)}</span>
+              <span style={{fontSize:12,fontWeight:700,color:tx.isCredit?T.green:T.red,flexShrink:0}}>{tx.isCredit?"+":"-"}{fmt(tx.amount||0, tx.currency||"EUR")}</span>
             </div>
           ))}
         </div>
