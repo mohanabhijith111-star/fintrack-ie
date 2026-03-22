@@ -1006,7 +1006,7 @@ export default function App() {
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
     const kw = (() => { const k = tx.description.split(' ').slice(0,3).join(' ').toLowerCase().trim(); return k.length > 2 ? k : null; })();
-    const matches = kw ? transactions.filter(t => t.id !== id && !t.isCredit && t.description.toLowerCase().includes(kw) && !t.ruleExcluded) : [];
+    const matches = kw ? transactions.filter(t => t.id !== id && t.description.toLowerCase().includes(kw) && !t.ruleExcluded) : [];
     setTransactions(prev => prev.map(t => t.id === id ? {...t, category, nature} : t));
     if (kw) { setRules(prev => { const ex=prev.findIndex(r=>r.keywords.some(k=>k===kw)); if(ex>=0){const n=[...prev];n[ex]={...n[ex],category};return n;} return [...prev,{id:Date.now().toString(),keywords:[kw],category,created:today()}]; }); }
     if (matches.length > 0) { setCategoryPrompt({id, category, nature, kw, matches: matches.map(t=>({tx:t,checked:true}))}); return; }
