@@ -921,31 +921,38 @@ export default function App() {
 
   const timeline60 = useMemo(() => {
     const now = new Date(); now.setHours(0, 0, 0, 0);
-    const end = new Date(now.getTime() + 60 * 86400000);
+    const lastTxDate = transactions.length ? new Date(Math.max(...transactions.map(t=>new Date(t.date+'T12:00:00').getTime()))) : now; const end = new Date(lastTxDate); end.setFullYear(end.getFullYear()+1);
     const events = [];
     if (firstPayday && payroll) {
-      getPaydays(firstPayday, taxProfile.payFrequency, 20).forEach(d => {
+      getPaydays(firstPayday, taxProfile.payFrequency, 52).forEach(d => {
         if (d >= now && d <= end) events.push({ date: d, label: "Payday (PAYE)", amount: payroll.perNet, currency: "EUR", type: "income" });
       });
     }
-    const recurringIncome = detectRecurring(transactions.filter(tx => tx.isCredit && !tx.isPAYE));
-    recurringIncome.forEach(({ description, amount, recurrence, dates }) => {
-      if (!dates.length) return;
-      let next = new Date(dates[dates.length - 1] + "T12:00:00");
-      for (let i = 0; i < 20; i++) {
-        if (recurrence === "weekly") next = new Date(next.getTime() + 7 * 86400000);
-        else if (recurrence === "fortnightly") next = new Date(next.getTime() + 14 * 86400000);
-        else if (recurrence === "monthly") { next = new Date(next); next.setMonth(next.getMonth() + 1); }
-        else if (recurrence === "bimonthly") { next = new Date(next); next.setMonth(next.getMonth() + 2); }
-        else if (recurrence === "quarterly") { next = new Date(next); next.setMonth(next.getMonth() + 3); }
-        else if (recurrence === "yearly") { next = new Date(next); next.setFullYear(next.getFullYear() + 1); }
-        else break;
+    // Salary projection - only project salary category transactions
+    const salaryTxs = transactions.filter(t => t.isCredit && (t.category === 'Salary' || t.category === 'salary'));
+    const lastSalary = salaryTxs.sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+    if (lastSalary) {
+      // Detect salary frequency from recurring salary transactions
+      const salaryDates = salaryTxs.sort((a,b) => new Date(a.date)-new Date(b.date)).map(t=>t.date);
+      const recurring = salaryDates.length > 1 ? detectRecurring(salaryTxs) : [];
+      const salaryRecurrence = recurring[0]?.recurrence || 'monthly';
+      const salaryAmount = parseFloat(lastSalary.amount) || 0;
+      let next = new Date(lastSalary.date + 'T12:00:00');
+      for (let i = 0; i < 60; i++) {
+        if (salaryRecurrence === 'weekly') next = new Date(next.getTime() + 7*86400000);
+        else if (salaryRecurrence === 'fortnightly') next = new Date(next.getTime() + 14*86400000);
+        else { next = new Date(next); next.setMonth(next.getMonth()+1); }
         if (next > end) break;
-        if (next >= now) events.push({ date: new Date(next), label: description, amount, currency: "EUR", type: "income" });
+        // Check if actual salary already received for this period (within 5 days)
+        const alreadyReceived = salaryTxs.some(t => Math.abs(new Date(t.date)-next) < 5*86400000);
+        if (next >= now && !alreadyReceived) {
+          const adjusted = adjustForBankingDay(next.toISOString().split('T')[0]);
+          events.push({ date: new Date(adjusted+'T12:00:00'), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
+        }
       }
-    });
+    }
     committed.forEach(ce => {
-      const dates = projectDates(ce.startDate, ce.recurrence, 60);
+      const dates = projectDates(ce.startDate, ce.recurrence, 365);
       dates.forEach(({ effective, shifted, scheduled }) => {
         const d = new Date(effective + "T12:00:00");
         if (d >= now && d <= end) events.push({ date: d, label: ce.name + (shifted ? ` (moved from ${scheduled})` : ""), amount: parseFloat(ce.amount), currency: ce.currency, type: "bill", shifted });
@@ -1958,11 +1965,11 @@ export default function App() {
         {tab === "timeline" && (
           <div style={{ ...S.card, overflow: "hidden" }}>
             <div style={{ padding: "16px 20px", borderBottom: "1px solid #252830" }}>
-              <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>60-Day Cash Flow</div>
-              <div style={{ fontSize: 12, color: T.textDim }}>All income, committed costs and debt payments in the next 60 days, with Irish banking day adjustments applied.</div>
+              <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>12-Month Cash Flow</div>
+              <div style={{ fontSize: 12, color: T.textDim }}>Salary, committed costs and debt payments projected to same date next year, with Irish banking day adjustments applied.</div>
             </div>
             <div style={{ display: "flex", flexDirection: "column" }}>
-              {timeline60.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>No events in the next 60 days. Set up payroll, committed costs or debts.</div>}
+              {timeline60.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>No events projected. Categorise salary transactions, set up committed, committed costs or debts.</div>}
               {timeline60.map((ev, i) => {
                 const colors = { income: T.green, bill: T.accent, debt: T.red };
                 const c = colors[ev.type] || T.textMid;
@@ -1972,7 +1979,7 @@ export default function App() {
                   <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: "1px solid #252830" }}>
                     <div style={{ width: 72, flexShrink: 0 }}>
                       <div style={{ fontSize: 11, fontWeight: 600, color: T.textMid }}>{ev.date.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</div>
-                      <div style={{ fontSize: 10, color: T.textDim }}>{daysAway === 0 ? "Today" : "in " + daysAway + "d"}</div>
+                      <div style={{ fontSize: 10, color: T.textDim }}>{daysAway === 0 ? "Today" : "in " + daysAway + "d"}</div>{ev.projected && <span style={{fontSize:9,color:T.textDim,marginLeft:2}}>est.</span>}
                     </div>
                     <div style={{ fontSize: 13, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
                     <div style={{ fontSize: 13, fontWeight: 700, color: c, flexShrink: 0 }}>
