@@ -3367,10 +3367,10 @@ function DriveSync() {
 
 // --- ACCOUNTS TAB -------------------------------------------------------------
 function AccountsTab({ transactions, debts }) {
-  const [accounts, setAccounts] = React.useState(() => { try { return JSON.parse(localStorage.getItem("ft_accounts") || "[]"); } catch { return []; } });
-  const [showAdd, setShowAdd] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", type: "bank", currency: "EUR", openingBalance: "0", note: "" });
-  React.useEffect(() => { try { localStorage.setItem("ft_accounts", JSON.stringify(accounts)); } catch {} }, [accounts]);
+  const [accounts, setAccounts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_accounts") || "[]"); } catch { return []; } });
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", type: "bank", currency: "EUR", openingBalance: "0", note: "" });
+  useEffect(() => { try { localStorage.setItem("ft_accounts", JSON.stringify(accounts)); } catch {} }, [accounts]);
 
   const TYPES = [
     { id: "bank", label: "Bank / Current", icon: "-" },
@@ -3381,7 +3381,7 @@ function AccountsTab({ transactions, debts }) {
     { id: "cash", label: "Cash", icon: "-" },
   ];
 
-  const balances = React.useMemo(() => {
+  const balances = useMemo(() => {
     const map = {};
     accounts.forEach(acc => {
       const opening = parseFloat(acc.openingBalance) || 0;
@@ -3482,10 +3482,10 @@ function AccountsTab({ transactions, debts }) {
 
 // --- GOALS TAB ----------------------------------------------------------------
 function GoalsTab() {
-  const [goals, setGoals] = React.useState(() => { try { return JSON.parse(localStorage.getItem("ft_goals") || "[]"); } catch { return []; } });
-  const [showAdd, setShowAdd] = React.useState(false);
-  const [form, setForm] = React.useState({ name: "", targetAmount: "", currentAmount: "0", targetDate: "", currency: "EUR", note: "" });
-  React.useEffect(() => { try { localStorage.setItem("ft_goals", JSON.stringify(goals)); } catch {} }, [goals]);
+  const [goals, setGoals] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_goals") || "[]"); } catch { return []; } });
+  const [showAdd, setShowAdd] = useState(false);
+  const [form, setForm] = useState({ name: "", targetAmount: "", currentAmount: "0", targetDate: "", currency: "EUR", note: "" });
+  useEffect(() => { try { localStorage.setItem("ft_goals", JSON.stringify(goals)); } catch {} }, [goals]);
 
   const addGoal = () => {
     if (!form.name || !form.targetAmount) return;
@@ -3609,7 +3609,7 @@ function CategoryPromptModal({ prompt, onConfirm, onDismiss }) {
   );
 }
 function SplitTransactionModal({ tx, overheadGroups, onSave, onDismiss }) {
-  const [splits, setSplits] = React.useState([
+  const [splits, setSplits] = useState([
     { id: "1", category: tx.category || "", amount: (tx.amount / 2).toFixed(2) },
     { id: "2", category: "", amount: (tx.amount / 2).toFixed(2) },
   ]);
