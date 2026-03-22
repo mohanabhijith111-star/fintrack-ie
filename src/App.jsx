@@ -946,8 +946,8 @@ export default function App() {
         // Check if actual salary already received for this period (within 5 days)
         const alreadyReceived = salaryTxs.some(t => Math.abs(new Date(t.date)-next) < 5*86400000);
         if (next >= now && !alreadyReceived) {
-          const adjusted = adjustForBankingDay(next.toISOString().split('T')[0]);
-          events.push({ date: new Date(adjusted+'T12:00:00'), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
+          const adjusted = next.toISOString().split("T")[0];
+          events.push({ date: new Date(next+'T12:00:00'), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
         }
       }
     }
