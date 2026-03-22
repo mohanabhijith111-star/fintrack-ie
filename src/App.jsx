@@ -832,6 +832,7 @@ export default function App() {
   const [customOverheads, setCustomOverheads] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_customOverheads") || "[]"); } catch { return []; } });
   const [recurringAlerts, setRecurringAlerts] = useState([]);
   const [loanPrompt, setLoanPrompt] = useState(null); // {tx, type: "received"|"repayment"} // detected recurring patterns
+  const [categoryPrompt, setCategoryPrompt] = useState(null);
   const [splitTx, setSplitTx] = useState(null);
   const [showMobileMenu, setShowMobileMenu] = useState(false);
 
@@ -1000,56 +1001,16 @@ export default function App() {
     setTransactions(prev => [newTx, ...prev]);
   }
 
-  function updateTxCategory(id, category, thisOneOnly) {
+  function updateTxCategory(id, category) {
     const nature = defaultNature(category);
-    const kw = (() => {
-      // Get the keyword from the transaction description
-      const tx = transactions.find(t => t.id === id);
-      if (!tx) return null;
-      const k = tx.description.split(" ").slice(0, 3).join(" ").toLowerCase().trim();
-      return k.length > 2 ? k : null;
-    })();
-
-    // Update rule first (separate state, no nesting issue)
-    if (kw) {
-      setRules(prev => {
-        const existing = prev.findIndex(r => r.keywords.some(k => k === kw));
-        if (existing >= 0) {
-          const next = [...prev];
-          next[existing] = { ...next[existing], category };
-          return next;
-        }
-        return [...prev, { id: Date.now().toString(), keywords: [kw], category, created: today() }];
-      });
-    }
-
-    // Single setTransactions call - update target tx AND backfill ALL with same description
-    setTransactions(prev => prev.map(tx => {
-      if (tx.id === id) return { ...tx, category, nature };
-      // Apply to ALL transactions with matching description (not just uncategorised)
-      // This ensures filtered searches categorise all matching rows at once
-      if (!thisOneOnly && kw && tx.description.toLowerCase().includes(kw) && !tx.ruleExcluded) return { ...tx, category, nature, ruleMatched:true };
-      return tx;
-    }));
-
-    // Liability prompts - sum ALL matching transactions (target + backfilled)
-    if (LOAN_RECEIVED_CATS.has(category) || LOAN_REPAYMENT_CATS.has(category)) {
-      const targetTx = transactions.find(t => t.id === id);
-      if (targetTx) {
-        // Collect all transactions that match this description (same ones that got backfilled)
-        const allMatching = kw
-          ? transactions.filter(t => t.id === id || t.description.toLowerCase().includes(kw))
-          : [targetTx];
-        const totalAmount = allMatching.reduce((sum, t) => sum + (parseFloat(t.amount) || 0), 0);
-        const aggregatedTx = { ...targetTx, amount: totalAmount, category, nature };
-
-        if (LOAN_RECEIVED_CATS.has(category)) {
-          setLoanPrompt({ tx: aggregatedTx, type: "received", count: allMatching.length });
-        } else {
-          setLoanPrompt({ tx: aggregatedTx, type: "repayment", count: allMatching.length });
-        }
-      }
-    }
+    const tx = transactions.find(t => t.id === id);
+    if (!tx) return;
+    const kw = (() => { const k = tx.description.split(' ').slice(0,3).join(' ').toLowerCase().trim(); return k.length > 2 ? k : null; })();
+    const matches = kw ? transactions.filter(t => t.id !== id && !t.isCredit && t.description.toLowerCase().includes(kw) && !t.ruleExcluded) : [];
+    setTransactions(prev => prev.map(t => t.id === id ? {...t, category, nature} : t));
+    if (kw) { setRules(prev => { const ex=prev.findIndex(r=>r.keywords.some(k=>k===kw)); if(ex>=0){const n=[...prev];n[ex]={...n[ex],category};return n;} return [...prev,{id:Date.now().toString(),keywords:[kw],category,created:today()}]; }); }
+    if (matches.length > 0) { setCategoryPrompt({id, category, nature, kw, matches: matches.map(t=>({tx:t,checked:true}))}); return; }
+    if (LOAN_RECEIVED_CATS.has(category)||LOAN_REPAYMENT_CATS.has(category)) { setLoanPrompt({tx:{...tx,category,nature},type:LOAN_RECEIVED_CATS.has(category)?'received':'repayment',count:1}); }
   }
 
   // Build a dedup key from date + description (normalised)
@@ -1638,7 +1599,6 @@ export default function App() {
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
                     onCategory={cat => updateTxCategory(tx.id, cat)}
                     onSplit={tx => setSplitTx(tx)}
-                    onOverride={txId => setTransactions(prev => prev.map(t => t.id===txId?{...t,ruleExcluded:true,ruleMatched:false}:t))}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -2132,6 +2092,21 @@ export default function App() {
         />
       )}
 
+      {categoryPrompt && (
+        <CategoryPromptModal
+          prompt={categoryPrompt}
+          onDismiss={()=>setCategoryPrompt(null)}
+          onConfirm={(selectedTxs, p) => {
+            setTransactions(prev => prev.map(t => selectedTxs.find(s=>s.id===t.id) ? {...t,category:p.category,nature:p.nature} : t));
+            setCategoryPrompt(null);
+            if (LOAN_RECEIVED_CATS.has(p.category)||LOAN_REPAYMENT_CATS.has(p.category)) {
+              const anchor = transactions.find(t=>t.id===p.id);
+              const total = selectedTxs.reduce((s,t)=>s+(parseFloat(t.amount)||0),0) + (parseFloat(anchor?.amount)||0);
+              if (anchor) setLoanPrompt({tx:{...anchor,amount:total,category:p.category,nature:p.nature},type:LOAN_RECEIVED_CATS.has(p.category)?'received':'repayment',count:selectedTxs.length+1});
+            }
+          }}
+        />
+      )}
       {loanPrompt && (
         <LoanPromptModal
           prompt={loanPrompt}
@@ -2697,7 +2672,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit, onOverride }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit  }) {
   const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2761,7 +2736,6 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
         )}
         {!tx.isCredit && onSplit && !tx.splits && <button onClick={()=>onSplit(tx)} style={{background:"#1E2028",color:"#8B8DA0",border:"1px solid #252830",borderRadius:5,padding:"2px 7px",fontSize:10,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Split</button>}
         {tx.splits && <span style={{background:"rgba(74,143,212,0.09)",color:"#4A8FD4",border:"1px solid rgba(74,143,212,0.25)",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>Split</span>}
-        {tx.ruleMatched && onOverride && (<button onClick={()=>onOverride(tx.id)} title="Apply category to this transaction only" style={{background:"rgba(240,160,60,0.1)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.3)",borderRadius:5,padding:"2px 6px",fontSize:9,cursor:"pointer",fontFamily:"inherit",flexShrink:0,marginRight:2}}>this only</button>)}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
@@ -3602,6 +3576,38 @@ function GoalsTab() {
 
 
 // --- SPLIT TRANSACTION MODAL --------------------------------------------------
+function CategoryPromptModal({ prompt, onConfirm, onDismiss }) {
+  const [items, setItems] = React.useState(prompt.matches);
+  const toggle = id => setItems(prev=>prev.map(m=>m.tx.id===id?{...m,checked:!m.checked}:m));
+  const allChecked = items.every(m=>m.checked);
+  const toggleAll = () => setItems(prev=>prev.map(m=>({...m,checked:!allChecked})));
+  const checkedCount = items.filter(m=>m.checked).length;
+  return (
+    <div style={{position:'fixed',inset:0,background:'rgba(0,0,0,0.75)',zIndex:300,display:'flex',alignItems:'center',justifyContent:'center',padding:16}} onClick={onDismiss}>
+      <div style={{background:T.surface,border:'1px solid #252830',borderRadius:12,padding:20,maxWidth:500,width:'100%',maxHeight:'80vh',display:'flex',flexDirection:'column',gap:12}} onClick={e=>e.stopPropagation()}>
+        <div style={{fontSize:15,fontWeight:700,color:T.text}}>Apply to matching transactions?</div>
+        <div style={{fontSize:12,color:T.textDim}}>{items.length} other transactions match this description. Select which ones should also get <span style={{color:T.accent,fontWeight:600}}>{prompt.category}</span>:</div>
+        <div style={{display:'flex',alignItems:'center',gap:8,paddingBottom:8,borderBottom:'1px solid #252830'}}>
+          <input type='checkbox' checked={allChecked} onChange={toggleAll} style={{accentColor:T.accent}} />
+          <span style={{fontSize:11,color:T.textDim,cursor:'pointer'}} onClick={toggleAll}>Select all ({items.length})</span>
+        </div>
+        <div style={{overflowY:'auto',display:'flex',flexDirection:'column',gap:4,maxHeight:280}}>
+          {items.map(({tx,checked})=>(
+            <div key={tx.id} onClick={()=>toggle(tx.id)} style={{display:'flex',alignItems:'center',gap:10,padding:'8px 10px',borderRadius:8,background:checked?'rgba(240,160,60,0.06)':T.bg,border:'1px solid '+(checked?'rgba(240,160,60,0.25)':'#252830'),cursor:'pointer'}}>
+              <input type='checkbox' checked={checked} onChange={()=>toggle(tx.id)} onClick={e=>e.stopPropagation()} style={{accentColor:T.accent,flexShrink:0}} />
+              <div style={{flex:1,minWidth:0}}><div style={{fontSize:12,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</div><div style={{fontSize:10,color:T.textDim}}>{tx.date} &bull; was: {tx.category||'Uncategorised'}</div></div>
+              <span style={{fontSize:12,fontWeight:700,color:T.red,flexShrink:0}}>-{fmt(tx.amount,tx.currency)}</span>
+            </div>
+          ))}
+        </div>
+        <div style={{display:'flex',gap:8,paddingTop:8,borderTop:'1px solid #252830'}}>
+          <button onClick={()=>onConfirm(items.filter(m=>m.checked).map(m=>m.tx),prompt)} style={{flex:1,padding:'9px 0',borderRadius:8,border:'none',background:T.accent,color:'#0E0E10',fontWeight:700,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Apply to {checkedCount} selected</button>
+          <button onClick={onDismiss} style={{padding:'9px 16px',borderRadius:8,border:'1px solid #252830',background:'none',color:T.textDim,fontSize:13,cursor:'pointer',fontFamily:'inherit'}}>Skip</button>
+        </div>
+      </div>
+    </div>
+  );
+}
 function SplitTransactionModal({ tx, overheadGroups, onSave, onDismiss }) {
   const [splits, setSplits] = React.useState([
     { id: "1", category: tx.category || "", amount: (tx.amount / 2).toFixed(2) },
