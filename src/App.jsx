@@ -1995,7 +1995,7 @@ export default function App() {
           <DebtPlannerTab debts={debts} setDebts={setDebts} />
         )}
 
-        {tab==="accounts"&&(<AccountsTab accounts={accounts} setAccounts={setAccounts} transactions={transactions} debts={debts} />)}
+        {tab==="accounts"&&(<AccountsTab transactions={transactions} debts={debts} />)}
         {tab==="goals"&&(<GoalsTab />)}
         {/* -- SETTINGS ---------------------------------------------------------- */}
         {tab === "settings" && (
