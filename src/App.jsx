@@ -1000,7 +1000,7 @@ export default function App() {
     setTransactions(prev => [newTx, ...prev]);
   }
 
-  function updateTxCategory(id, category) {
+  function updateTxCategory(id, category, thisOneOnly) {
     const nature = defaultNature(category);
     const kw = (() => {
       // Get the keyword from the transaction description
@@ -1028,7 +1028,7 @@ export default function App() {
       if (tx.id === id) return { ...tx, category, nature };
       // Apply to ALL transactions with matching description (not just uncategorised)
       // This ensures filtered searches categorise all matching rows at once
-      if (kw && tx.description.toLowerCase().includes(kw)) return { ...tx, category, nature };
+      if (!thisOneOnly && kw && tx.description.toLowerCase().includes(kw) && !tx.ruleExcluded) return { ...tx, category, nature, ruleMatched:true };
       return tx;
     }));
 
@@ -1552,269 +1552,7 @@ export default function App() {
                         </div>
                         {/* Bottom row: category combo full width */}
                         <div style={{ display: "flex", gap: 6, alignItems: "center" }}>
-                          <CategoryCombo
-                            value={tx.category || ""}
-                            overheadGroups={OVERHEAD_GROUPS}
-                            onNewCategory={label => {
-                              setCustomOverheads(prev => {
-                                if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
-                                return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
-                              });
-                            }}
-                            onChange={cat => {
-                              const kw = tx.description.split(" ").slice(0, 3).join(" ").toLowerCase();
-                              setImportQueue(prev => prev.map((t, j) => {
-                                if (j === i) return { ...t, category: cat };
-                                if (!t.category && t.description.toLowerCase().includes(kw)) return { ...t, category: cat, autoMatched: true };
-                                return t;
-                              }));
-                              if (cat) {
-                                setRules(prev => {
-                                  const exists = prev.findIndex(r => r.keywords.includes(kw));
-                                  if (exists >= 0) { const n = [...prev]; n[exists] = { ...n[exists], category: cat }; return n; }
-                                  return [...prev, { id: Date.now().toString(), keywords: [kw], category: cat, created: today() }];
-                                });
-                              }
-                            }}
-                          />
-                          {tx.aiSuggested && <Badge color="blue">AI</Badge>}
-                          {tx.autoMatched && <Badge color="accent">auto</Badge>}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-            </div>
-
-            <div style={{ ...S.card, padding: 20 }}>
-              <ManualTxForm onAdd={addManualTx} overheadGroups={OVERHEAD_GROUPS}
-                onNewCategory={label => setCustomOverheads(prev => {
-                  if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
-                  return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
-                })}
-              />
-            </div>
-
-            {/* Filter bar - single compact row */}
-            <div style={{ ...S.card, padding: "10px 14px", display: "flex", gap: 8, alignItems: "center", flexWrap: "wrap" }}>
-              <div style={{ display: "flex", gap: 3, flexShrink: 0 }}>
-                {[["all","All"],["income","In"],["expense","Out"],["uncat","Uncat"]].map(([v,l]) => (
-                  <button key={v} onClick={() => setTxFilter(v)}
-                    style={{ padding: "5px 10px", borderRadius: 6, border: "none", cursor: "pointer", fontSize: 11, fontFamily: "inherit", background: txFilter===v ? T.accent : T.surfaceHigh, color: txFilter===v ? "#0E0E10" : T.textMid, fontWeight: txFilter===v ? 700 : 400, display: "flex", alignItems: "center", gap: 4 }}>
-                    {l}
-                    {v==="uncat" && transactions.filter(t=>!t.category).length > 0 && (
-                      <span style={{ background: T.red, color:"#fff", borderRadius:8, padding:"0 4px", fontSize:9, fontWeight:700 }}>{transactions.filter(t=>!t.category).length}</span>
-                    )}
-                  </button>
-                ))}
-              </div>
-              <div style={{ position:"relative", flex:1, minWidth:120 }}>
-                <Search size={11} style={{ position:"absolute", left:8, top:"50%", transform:"translateY(-50%)", color:T.textDim, pointerEvents:"none" }} />
-                <input value={txSearch} onChange={e=>setTxSearch(e.target.value)} placeholder="Search..." style={{ ...S.input, paddingLeft:26, fontSize:12 }} />
-              </div>
-              <input type="date" value={txDateFrom} onChange={e=>setTxDateFrom(e.target.value)} style={{ ...S.input, width:130, fontSize:12, flexShrink:0 }} />
-              <span style={{ color:T.textDim, fontSize:11, flexShrink:0 }}>to</span>
-              <input type="date" value={txDateTo} onChange={e=>setTxDateTo(e.target.value)} style={{ ...S.input, width:130, fontSize:12, flexShrink:0 }} />
-            </div>
-
-            {/* Transaction ledger */}
-            <div style={{ ...S.card, overflow: "hidden" }}>
-              {/* Header */}
-              <div style={{ display: "flex", alignItems: "center", padding: "8px 14px", borderBottom: "1px solid #252830", fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", gap: 8 }}>
-                <div style={{ width: 80, flexShrink: 0 }}>Date</div>
-                <div style={{ flex: 1 }}>Description</div>
-                <div style={{ flexShrink: 0 }}>Amount</div>
-              </div>
-              <div style={{ maxHeight: 520, overflowY: "auto" }}>
-                {filteredTx.length === 0 && (
-                  <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>No transactions match filters.</div>
-                )}
-                {filteredTx.map(tx => (
-                  <TxRow key={tx.id} tx={tx}
-                    overheadGroups={OVERHEAD_GROUPS}
-                    debts={debts}
-                    committed={committed}
-                    onCommit={expense => setCommitted(prev => [...prev, expense])}
-                    onCategory={cat => updateTxCategory(tx.id, cat)}
-                    onSplit={tx => setSplitTx(tx)}
-                    onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
-                    onNewCategory={label => setCustomOverheads(prev => {
-                      if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
-                      return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
-                    })}
-                    onAllocateDebt={(debtId, amount) => {
-                      const debt = debts.find(d => d.id === debtId);
-                      // Don't reduce balance if this transaction predates the balance snapshot
-                      if (debt && debt.balanceAsOf && tx.date < debt.balanceAsOf) {
-                        // Still mark as allocated for categorisation, but don't touch the balance
-                        setTransactions(prev => prev.map(t => t.id === tx.id
-                          ? { ...t, debtAllocated: debtId, category: t.category || "Loan Repayment", nature: "balance_sheet" }
-                          : t
-                        ));
-                        return;
-                      }
-                      // Reduce the debt balance
-                      setDebts(prev => prev.map(d => d.id === debtId
-                        ? { ...d, balance: Math.max(0, parseFloat(d.balance) - amount).toFixed(2), balanceAsOf: today() }
-                        : d
-                      ));
-                      setTransactions(prev => prev.map(t => t.id === tx.id
-                        ? { ...t, debtAllocated: debtId, category: t.category || "Loan Repayment", nature: "balance_sheet" }
-                        : t
-                      ));
-                    }}
-                    onDelete={() => setTransactions(prev => prev.filter(t => t.id !== tx.id))} />
-                ))}
-              </div>
-              {filteredTx.length > 0 && (
-                <div style={{ padding: "10px 16px", borderTop: "1px solid #252830", display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textDim }}>
-                  <span>{filteredTx.length} transactions</span>
-                  <span>In: <b style={{ color: T.green }}>{fmt(filteredTx.filter(t => t.isCredit).reduce((s, t) => s + t.amount, 0))}</b> &nbsp; Out: <b style={{ color: T.red }}>{fmt(filteredTx.filter(t => !t.isCredit).reduce((s, t) => s + t.amount, 0))}</b></span>
-                </div>
-              )}
-            </div>
-
-            {/* Auto-cat rules */}
-            {rules.length > 0 && (
-              <div style={{ ...S.card, padding: 20 }}>
-                <div className="hn" style={{ fontSize: 14, fontWeight: 700, marginBottom: 12 }}>Auto-Categorisation Rules ({rules.length})</div>
-                <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
-                  {rules.map(r => (
-                    <div key={r.id} style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 12px", borderRadius: 8, background: T.surfaceHigh }}>
-                      <div>
-                        <span style={{ fontSize: 12, color: T.text }}>{r.keywords.join(", ")}</span>
-                        <span style={{ fontSize: 11, color: T.textDim }}> &rarr; </span>
-                        <Badge color="accent">{r.category}</Badge>
-                      </div>
-                      <button onClick={() => setRules(prev => prev.filter(x => x.id !== r.id))} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer" }}><X size={12} /></button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* -- BUDGETING ---------------------------------------------------------- */}
-        {tab === "budgeting" && (
-          <BudgetingTab transactions={transactions} overheadGroups={OVERHEAD_GROUPS} committed={committed} />
-        )}
-
-        {/* -- COMMITTED --------------------------------------------------------- */}
-        {tab === "committed" && (
-          <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-
-            {/* Compact add form */}
-            <div style={{ ...S.card, padding: 20 }}>
-              <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Add Committed Expense</div>
-              <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Fixed and variable recurring costs - projected with Irish banking day adjustments.</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(160px, 1fr))", gap: 10, marginBottom: 12 }}>
-                <div style={{ gridColumn: "span 2" }}>
-                  <Select label="Type" value={commitForm.typeId} onChange={e => {
-                    const t = COMMITTED_TYPES.find(x => x.id === e.target.value);
-                    setCommitForm(p => ({ ...p, typeId: e.target.value, recurrence: t?.rec || "monthly", isFixed: t?.fixed ?? true }));
-                  }}>
-                    {COMMITTED_GROUPS.map(g => (
-                      <optgroup key={g} label={g}>
-                        {COMMITTED_TYPES.filter(t => t.group === g).map(t => <option key={t.id} value={t.id}>{t.label}</option>)}
-                      </optgroup>
-                    ))}
-                  </Select>
-                </div>
-                <Input label="Custom name (opt)" value={commitForm.name} onChange={e => setCommitForm(p => ({ ...p, name: e.target.value }))} placeholder="Override label" />
-                <Input label="Amount" type="number" value={commitForm.amount} onChange={e => setCommitForm(p => ({ ...p, amount: e.target.value }))} placeholder="0.00" />
-                <Select label="Currency" value={commitForm.currency} onChange={e => setCommitForm(p => ({ ...p, currency: e.target.value }))}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </Select>
-                <Input label="Start / First payment" type="date" value={commitForm.startDate} onChange={e => setCommitForm(p => ({ ...p, startDate: e.target.value }))} />
-                <Select label="Frequency" value={commitForm.recurrence} onChange={e => setCommitForm(p => ({ ...p, recurrence: e.target.value }))}>
-                  {RECURRENCES.map(r => <option key={r.v} value={r.v}>{r.l}</option>)}
-                </Select>
-                <div>
-                  <label style={S.label}>Type</label>
-                  <div style={{ display: "flex", gap: 6 }}>
-                    {[{ v: true, l: "Fixed" }, { v: false, l: "Variable" }].map(({ v, l }) => (
-                      <button key={l} onClick={() => setCommitForm(p => ({ ...p, isFixed: v }))}
-                        style={{ flex: 1, padding: "8px 0", borderRadius: 8, border: `1px solid ${commitForm.isFixed === v ? T.accent : T.border}`, background: commitForm.isFixed === v ? T.accentDim + "40" : "transparent", color: commitForm.isFixed === v ? T.accent : T.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit", fontWeight: commitForm.isFixed === v ? 700 : 400 }}>
-                        {l}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-                <Input label="Note" value={commitForm.note} onChange={e => setCommitForm(p => ({ ...p, note: e.target.value }))} placeholder="e.g. ESB a/c 123" />
-              </div>
-              <Btn onClick={addCommitted}><Plus size={13} /> Add</Btn>
-            </div>
-
-            {/* Monthly summary */}
-            {committed.length > 0 && (
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10 }}>
-                {(() => {
-                  const byGroup = {};
-                  committed.filter(c => c.currency === "EUR").forEach(c => {
-                    const r = RECURRENCES.find(r => r.v === c.recurrence);
-                    byGroup[c.group] = (byGroup[c.group] || 0) + (parseFloat(c.amount) || 0) * (r?.ppy || 0) / 12;
-                  });
-                  const total = Object.values(byGroup).reduce((a, b) => a + b, 0);
-                  return [
-                    ...Object.entries(byGroup).map(([g, mo]) => (
-                      <StatCard key={g} label={g} value={fmt(mo)} sub="/month" color="accent" />
-                    )),
-                    <StatCard key="total" label="Total EUR" value={fmt(total)} sub={`${fmt(total * 12)} /year`} color="text" />,
-                  ];
-                })()}
-              </div>
-            )}
-
-            {/* Committed list */}
-            <div style={{ ...S.card, overflow: "hidden" }}>
-              {committed.length === 0 && (
-                <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>No committed expenses yet.</div>
-              )}
-              {committed.map(ce => {
-                const rec = RECURRENCES.find(r => r.v === ce.recurrence);
-                const nextDates = projectDates(ce.startDate, ce.recurrence, 3);
-                const next = nextDates.find(d => d.effective >= today());
-                const isOpen = showProjectId === ce.id;
-                return (
-                  <div key={ce.id} style={{ borderBottom: "1px solid #252830" }}>
-                    <div className="row-hover" style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 16px", gap: 10 }}>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: T.text }}>{ce.name}</span>
-                          <Badge color={ce.isFixed ? "blue" : "accent"}>{ce.isFixed ? "Fixed" : "Variable"}</Badge>
-                          <Badge color="dim">{rec?.l}</Badge>
-                          <span style={{ fontSize: 11, color: T.textDim }}>{ce.group}</span>
-                        </div>
-                        {/* Category picker - always editable, clears with x button */}
-                        <div style={{ marginTop: 6, display: "flex", alignItems: "center", gap: 6, flexWrap: "wrap" }}>
-                          <CategoryCombo
-                            value={ce.category || ""}
-                            overheadGroups={OVERHEAD_GROUPS}
-                            placeholder="Set category..."
-                            onNewCategory={label => setCustomOverheads(prev => {
-                              if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
-                              return [...prev, { id: Date.now().toString(), label, group: "Other", nature: "revenue" }];
-                            })}
-                            onChange={cat => {
-                              setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: cat } : x));
-                              if (!cat) return;
-                              const normName = normaliseDesc(ce.name);
-                              setTransactions(prev => prev.map(tx => {
-                                if (tx.isCredit) return tx;
-                                const normDesc = normaliseDesc(tx.description || "");
-                                const isMatch = normDesc === normName || normDesc.includes(normName) || normName.includes(normDesc) || (normName.length > 5 && normDesc.includes(normName.substring(0, 10)));
-                                return isMatch ? { ...tx, category: cat } : tx;
-                              }));
-                              setRules(prev => {
-                                const kw = normName.split(" ").filter(w => w.length > 3).slice(0, 2).join(" ");
-                                if (!kw) return prev;
-                                return [...prev.filter(r => !r.keywords?.includes(kw)), { id: Date.now().toString(), description: ce.name, keywords: [kw], category: cat }];
-                              });
-                            }}
-                            style={{ fontSize: 12 }}
-                          />
+                          <select value={ce.category||""} onChange={e=>{const cat=e.target.value;setCommitted(prev=>prev.map(x=>x.id===ce.id?{...x,category:cat}:x));if(!cat)return;const normName=normaliseDesc(ce.name);setTransactions(prev=>prev.map(tx=>{if(tx.isCredit)return tx;const nd=normaliseDesc(tx.description||"");return(nd===normName||nd.includes(normName)||normName.includes(nd))?{...tx,category:cat}:tx;}));setRules(prev=>{const kw=normName.split(" ").filter(w=>w.length>3).slice(0,2).join(" ");if(!kw)return prev;return[...prev.filter(r=>!r.keywords?.includes(kw)),{id:Date.now().toString(),description:ce.name,keywords:[kw],category:cat}];});}} style={{...S.input,fontSize:12,flex:1}}><option value="">-- Set category --</option>{Object.entries(OVERHEAD_GROUPS).map(([grp,cats])=>(<optgroup key={grp} label={grp}>{cats.map(c=><option key={c} value={c}>{c}</option>)}</optgroup>))}</select>
                           {ce.category && <Badge color="green">{ce.category}</Badge>}
                           {ce.category && (
                             <button title="Clear category" onClick={() => setCommitted(prev => prev.map(x => x.id === ce.id ? { ...x, category: "" } : x))}
@@ -2059,6 +1797,8 @@ export default function App() {
           <DebtPlannerTab debts={debts} setDebts={setDebts} />
         )}
 
+        {tab==="accounts"&&(<AccountsTab accounts={accounts} setAccounts={setAccounts} transactions={transactions} debts={debts} />)}
+        {tab==="goals"&&(<GoalsTab />)}
         {/* -- SETTINGS ---------------------------------------------------------- */}
         {tab === "settings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 700 }}>
@@ -2719,7 +2459,7 @@ function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }
 }
 
 
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit }) {
+function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit, onOverride }) {
   const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
   const nature = tx.nature || defaultNature(tx.category);
@@ -2783,6 +2523,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
         )}
         {!tx.isCredit && onSplit && !tx.splits && <button onClick={()=>onSplit(tx)} style={{background:"#1E2028",color:"#8B8DA0",border:"1px solid #252830",borderRadius:5,padding:"2px 7px",fontSize:10,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Split</button>}
         {tx.splits && <span style={{background:"rgba(74,143,212,0.09)",color:"#4A8FD4",border:"1px solid rgba(74,143,212,0.25)",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>Split</span>}
+        {tx.ruleMatched && onOverride && (<button onClick={()=>onOverride(tx.id)} title="Apply this category to this transaction only" style={{background:"rgba(240,160,60,0.1)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.3)",borderRadius:5,padding:"2px 6px",fontSize:9,cursor:"pointer",fontFamily:"inherit",flexShrink:0,marginRight:2}}>this only</button>)}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
@@ -3231,7 +2972,7 @@ const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rul
 function loadGoogleIdentity() { return new Promise((resolve, reject) => { if (window.google?.accounts?.oauth2) { resolve(); return; } const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); }); }
 async function getAccessToken() { await loadGoogleIdentity(); return new Promise((resolve, reject) => { const client = window.google.accounts.oauth2.initTokenClient({ client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES, callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); } }); client.requestAccessToken({ prompt: '' }); }); }
 async function findOrCreateFile(token) { const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`); const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } }); const data = await r.json(); if (data.files?.length > 0) return data.files[0].id; const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] }; const form = new FormData(); form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' })); form.append('file', new Blob(['{}'], { type: 'application/json' })); const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); return (await cr.json()).id; }
-async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
+async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); localStorage.setItem('_savedAt', data['_savedAt']); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
 async function loadFromGDrive(token) {
   const fileId = await findOrCreateFile(token);
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
@@ -3242,7 +2983,7 @@ async function loadFromGDrive(token) {
   // Safety: check Drive has meaningful data before loading
   const driveTxCount = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
   if (driveTxCount === 0) return null; // Drive has no transactions - treat as empty
-  LS_KEYS.forEach(k => { try { if (data[k]) localStorage.setItem(k, data[k]); } catch {} });
+  const localTs=localStorage.getItem('_savedAt')||'1970'; const driveTs=data['_savedAt']||'1970'; const driveNewer=new Date(driveTs)>new Date(localTs); LS_KEYS.forEach(k=>{try{if(!data[k])return;if(driveNewer){localStorage.setItem(k,data[k]);}else{const lv=localStorage.getItem(k);if(!lv||lv==='[]'||lv==='{}')localStorage.setItem(k,data[k]);}}catch{}}); if(driveNewer)localStorage.setItem('_savedAt',driveTs);
   return { savedAt: data['_savedAt'] || 'unknown', txCount: driveTxCount };
 }
 
