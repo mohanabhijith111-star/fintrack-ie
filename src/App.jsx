@@ -1651,6 +1651,16 @@ export default function App() {
                     onCommit={expense => setCommitted(prev => [...prev, expense])}
                     onCategory={cat => updateTxCategory(tx.id, cat)}
                     onSplit={tx => setSplitTx(tx)}
+                    onCreateRule={tx => {
+                      const kw = tx.description.split(' ').slice(0,3).join(' ').toLowerCase().trim();
+                      if (!kw) return;
+                      setRules(prev => {
+                        const exists = prev.findIndex(r => r.keywords?.includes(kw));
+                        if (exists >= 0) { alert('A rule for "' + kw + '" already exists.'); return prev; }
+                        return [...prev, { id: Date.now().toString(), keywords: [kw], category: tx.category, created: today() }];
+                      });
+                      alert('Rule created: "' + kw + '" → ' + tx.category + '. Future imports matching this will be auto-categorised.');
+                    }}
                     onNature={nature => setTransactions(prev => prev.map(t => t.id === tx.id ? { ...t, nature } : t))}
                     onNewCategory={label => setCustomOverheads(prev => {
                       if (prev.some(o => o.label.toLowerCase() === label.toLowerCase())) return prev;
@@ -2285,6 +2295,7 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
             style={{ background: editing ? T.accentDim+"40" : T.surfaceHigh, color: editing ? T.accent : T.textMid, border: `1px solid ${editing ? T.accent+"50" : T.border}`, borderRadius: 6, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
             {editing ? "Cancel" : "Edit"}
           </button>
+        {tx.category && onCreateRule && (<button onClick={()=>onCreateRule(tx)} title="Save as auto-categorisation rule for future imports" style={{background:"rgba(240,160,60,0.08)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.25)",borderRadius:5,padding:"2px 6px",fontSize:9,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>+ Rule</button>)}
           <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4 }}><Trash2 size={13} /></button>
         </div>
       </div>
