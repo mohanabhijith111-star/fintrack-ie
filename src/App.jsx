@@ -2114,6 +2114,7 @@ export default function App() {
                     rule={r}
                     overheadGroups={OVERHEAD_GROUPS}
                     onChange={updated => {
+                      if (updated._applyNow) { const {_applyNow,...rule}=updated; setTransactions(prev=>prev.map(tx=>{const desc=(tx.description||'').toLowerCase();const matches=rule.keywords&&rule.keywords.some(k=>k&&desc.includes(k.toLowerCase()));return(matches&&!tx.manualCategory&&!tx.category)?{...tx,category:rule.category}:tx;})); return; }
                       // Update the rule
                       setRules(prev => prev.map(x => x.id === r.id ? { ...updated, id: r.id } : x));
                       // Backfill: apply the updated rule to all transactions whose
@@ -3003,8 +3004,10 @@ function AddOverheadForm({ onAdd }) {
 
 
 // --- RULE EDITOR -------------------------------------------------------------
-function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
+function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) {
   const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
+  const [showTxns, setShowTxns] = useState(false);
+  const matchingTxns = (transactions||[]).filter(tx => rule.keywords && rule.keywords.some(k => k && (tx.description||'').toLowerCase().includes(k.toLowerCase())));
   const [keywordsStr, setKeywordsStr] = useState((rule.keywords || []).join(", "));
   const [category, setCategory] = useState(rule.category || "");
   const [dirty, setDirty] = useState(rule.isNew || false);
@@ -3082,7 +3085,31 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete }) {
           ))}
         </div>
       ))}
+      {matchingTxns.length > 0 && (
+        <div style={{borderTop:'1px solid #252830',padding:'4px 12px 8px'}}>
+          <button onClick={()=>setShowTxns(s=>!s)} style={{background:'none',border:'none',color:T.accent,fontSize:11,cursor:'pointer',fontFamily:'inherit',padding:'4px 0'}}>
+            {showTxns ? String.fromCharCode(9662) : String.fromCharCode(9656)} {matchingTxns.length} matching transaction{matchingTxns.length!==1?'s':''}
+          </button>
+          {showTxns && (
+            <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:6,maxHeight:200,overflowY:'auto'}}>
+              {matchingTxns.map(tx=>(
+                <div key={tx.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:6,background:T.bg,border:'1px solid #252830'}}>
+                  <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</div><div style={{fontSize:10,color:T.textDim}}>{tx.date} - <span style={{color:tx.category?T.green:T.textDim}}>{tx.category||'Uncategorised'}</span></div></div>
+                  <span style={{fontSize:11,fontWeight:700,color:tx.isCredit?T.green:T.red,flexShrink:0}}>{tx.isCredit?'+':'-'}{parseFloat(tx.amount||0).toFixed(2)}</span>
+                </div>
+              ))}
+              {rule.category && matchingTxns.some(t=>!t.category) && (
+                <button onClick={()=>onChange&&onChange({...rule,_applyNow:true})} style={{marginTop:4,padding:'5px 10px',borderRadius:6,border:'none',background:T.accent,color:'#0E0E10',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
+                  Apply rule to uncategorised
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+      )}
     </div>
+  );
+}
   );
 }
 
