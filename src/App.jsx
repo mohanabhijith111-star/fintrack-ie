@@ -1039,12 +1039,30 @@ export default function App() {
     const nature = defaultNature(category);
     const tx = transactions.find(t => t.id === id);
     if (!tx) return;
-    const kw = (() => { const k = tx.description.split(' ').slice(0,3).join(' ').toLowerCase().trim(); return k.length > 2 ? k : null; })();
-    const matches = kw ? transactions.filter(t => t.id !== id && t.description.toLowerCase().includes(kw) && !t.ruleExcluded) : [];
-    setTransactions(prev => prev.map(t => t.id === id ? {...t, category, nature} : t));
-    if (kw) { setRules(prev => { const ex=prev.findIndex(r=>r.keywords.some(k=>k===kw)); if(ex>=0){const n=[...prev];n[ex]={...n[ex],category};return n;} return [...prev,{id:Date.now().toString(),keywords:[kw],category,created:today()}]; }); }
-    if (matches.length > 0) { setCategoryPrompt({id, category, nature, kw, matches: matches.slice(0,50).map(t=>({tx:t,checked:true}))}); return; }
-    if (LOAN_RECEIVED_CATS.has(category)||LOAN_REPAYMENT_CATS.has(category)) { setLoanPrompt({tx:{...tx,category,nature},type:LOAN_RECEIVED_CATS.has(category)?'received':'repayment',count:1}); }
+    // Mark this transaction as manually categorised - rules will never overwrite it
+    setTransactions(prev => prev.map(t => t.id === id ? {...t, category, nature, manualCategory: true} : t));
+    const kw = (() => {
+      const k = tx.description.split(' ').slice(0,3).join(' ').toLowerCase().trim();
+      return k.length > 2 ? k : null;
+    })();
+    // Find ONLY uncategorised + non-manual transactions matching this description
+    const matches = kw
+      ? transactions.filter(t =>
+          t.id !== id &&
+          !t.manualCategory &&
+          (!t.category || t.category === '') &&
+          t.description.toLowerCase().includes(kw)
+        )
+      : [];
+    // Show checkbox modal only if there are uncategorised matches
+    if (matches.length > 0) {
+      setCategoryPrompt({ id, category, nature, kw, matches: matches.slice(0,50).map(t=>({tx:t,checked:true})) });
+      return;
+    }
+    // Loan prompts for the single transaction only
+    if (LOAN_RECEIVED_CATS.has(category) || LOAN_REPAYMENT_CATS.has(category)) {
+      setLoanPrompt({ tx: {...tx, category, nature}, type: LOAN_RECEIVED_CATS.has(category) ? 'received' : 'repayment', count: 1 });
+    }
   }
 
   // Build a dedup key from date + description (normalised)
@@ -2130,7 +2148,7 @@ export default function App() {
           prompt={categoryPrompt}
           onDismiss={()=>setCategoryPrompt(null)}
           onConfirm={(selectedTxs, p) => {
-            setTransactions(prev => prev.map(t => selectedTxs.find(s=>s.id===t.id) ? {...t,category:p.category,nature:p.nature} : t));
+            setTransactions(prev => prev.map(t => selectedTxs.find(s=>s.id===t.id) ? {...t,category:p.category,nature:p.nature,manualCategory:true} : t));
             setCategoryPrompt(null);
             if (LOAN_RECEIVED_CATS.has(p.category)||LOAN_REPAYMENT_CATS.has(p.category)) {
               const anchor = transactions.find(t=>t.id===p.id);
