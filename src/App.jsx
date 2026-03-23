@@ -3110,8 +3110,6 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) 
     </div>
   );
 }
-  );
-}
 
 
 // --- LOAN PROMPT MODAL (with BNPL + inline debt creation) --------------------
