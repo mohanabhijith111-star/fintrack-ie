@@ -3086,6 +3086,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) 
           Created {rule.created} &middot; {rule.keywords.filter(k => k).map(k => (
             <span key={k} style={{ background: T.bg, border: "1px solid #252830", borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
           ))}
+      ))}
         </div>
       {matchingTxns.length > 0 && (
         <div style={{borderTop:'1px solid #252830',padding:'4px 12px 8px'}}>
