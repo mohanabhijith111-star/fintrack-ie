@@ -4067,17 +4067,14 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                   {isSel && (
                     <div style={{ background: T.surfaceHigh, padding: '12px 20px', borderBottom: "1px solid #252830" }}>
                       <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8, fontWeight: 600 }}>RECENT TRANSACTIONS IN {cat.toUpperCase()}</div>
-                      {txs.sort((a, b) => b.date?.localeCompare(a.date)).slice(0, 8).map(tx => (
-                        <div key={tx.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '5px 0', borderBottom: "1px solid #252830" }}>
-                          <div>
-                            <div style={{ fontSize: 12, color: T.text }}>{tx.description}</div>
-                            <div style={{ fontSize: 10, color: T.textDim }}>{tx.date}</div>
-                          </div>
-                          <span style={{ fontSize: 13, fontWeight: 600, color: T.red, flexShrink: 0, marginLeft: 8 }}>{fmt(tx.amount)}</span>
+                      {txs.sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,12).map(tx=>(
+                        <div key={tx.id} style={{display:'flex',alignItems:'center',gap:10,padding:'5px 0',borderBottom:'1px solid #252830'}}>
+                          <span style={{fontSize:10,color:T.textDim,flexShrink:0,width:72}}>{tx.date?new Date(tx.date+'T12:00:00').toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'2-digit'}):''}</span>
+                          <span style={{fontSize:12,color:T.text,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</span>
+                          <span style={{fontSize:13,fontWeight:600,color:tx.isCredit?T.green:T.red,flexShrink:0}}>{tx.isCredit?'+':'-'}{fmt(tx.amount,tx.currency||'EUR')}</span>
                         </div>
                       ))}
-                      {txs.length > 8 && <div style={{ fontSize: 11, color: T.textDim, marginTop: 6 }}>+{txs.length - 8} more transactions</div>}
-                      {/* Month breakdown for this category */}
+                      {txs.length > 12 && <div style={{fontSize:11,color:T.textDim,marginTop:6}}>+{txs.length-12} more transactions</div>}
                       <div style={{ marginTop: 10, fontSize: 11, color: T.textDim, fontWeight: 600, marginBottom: 6 }}>MONTH BY MONTH</div>
                       {months.map(m => {
                         const v = m.byCategory[cat];
@@ -4088,6 +4085,7 @@ function AnalyticsTab({ transactions, overheadGroups, committed }) {
                             <span style={{ color: T.text, fontWeight: 600 }}>{fmt(v)}</span>
                           </div>
                         );
+            {(() => { const uncat = transactions.filter(t=>!t.isCredit&&!t.category); if(!uncat.length) return null; const total=uncat.reduce((s,t)=>s+(parseFloat(t.amount)||0),0); const isSel=selectedCat==='__uncat__'; return (<div key="__uncat__"><div className="row-hover" onClick={()=>setSelectedCat(isSel?null:'__uncat__')} style={{padding:'12px 20px',borderBottom:'1px solid #252830',cursor:'pointer',background:isSel?T.accent+'08':'transparent',opacity:0.7}}><div style={{display:'flex',justifyContent:'space-between',alignItems:'center',marginBottom:6}}><div><span style={{fontSize:13,fontWeight:600,color:T.textDim}}>Uncategorised</span><span style={{fontSize:11,color:T.textDim,marginLeft:8}}>{uncat.length} transactions</span></div><div style={{textAlign:'right'}}><div style={{fontSize:14,fontWeight:700,color:T.textDim}}>{fmt(total)}</div><div style={{fontSize:10,color:T.textDim}}>not yet categorised</div></div></div><div style={{height:4,background:T.border,borderRadius:2}}><div style={{height:'100%',width:'100%',background:'#3a3a4a',borderRadius:2}}/></div></div>{isSel&&(<div style={{background:T.surfaceHigh,padding:'12px 20px',borderBottom:'1px solid #252830'}}><div style={{fontSize:11,color:T.textDim,marginBottom:8,fontWeight:600}}>UNCATEGORISED TRANSACTIONS</div>{uncat.sort((a,b)=>b.date?.localeCompare(a.date)).slice(0,12).map(tx=>(<div key={tx.id} style={{display:'flex',alignItems:'center',gap:10,padding:'5px 0',borderBottom:'1px solid #252830'}}><span style={{fontSize:10,color:T.textDim,flexShrink:0,width:72}}>{tx.date?new Date(tx.date+'T12:00:00').toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'2-digit'}):''}</span><span style={{fontSize:12,color:T.text,flex:1,minWidth:0,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</span><span style={{fontSize:13,fontWeight:600,color:T.red,flexShrink:0}}>-{fmt(tx.amount,tx.currency||'EUR')}</span></div>))}{uncat.length>12&&<div style={{fontSize:11,color:T.textDim,marginTop:6}}>+{uncat.length-12} more</div>}</div>)}</div>); })()}
                       })}
                     </div>
                   )}
