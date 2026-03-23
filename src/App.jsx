@@ -3105,7 +3105,7 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) 
               ))}
               {rule.category && (
                 <button onClick={()=>{onChange&&onChange({...rule,_applyNow:true});}} style={{marginTop:4,padding:'5px 10px',borderRadius:6,border:'none',background:T.accent,color:'#0E0E10',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-                  Apply "{rule.category}" to all {matchingTxns.filter(t=>!t.category||t.category!==rule.category).length} uncategorised
+                  Apply rule category to all {matchingTxns.filter(t=>!t.category||t.category!==rule.category).length} uncategorised
                 </button>
               )}
             </div>
