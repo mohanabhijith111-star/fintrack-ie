@@ -1373,7 +1373,7 @@ export default function App() {
         {tab === "dashboard" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
             {/* KPI row - 2 cols on mobile, auto-fit on desktop */}
-            <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(100px, 1fr))", gap: 10 }}>
+            <div className="stat-grid" style={{ display: "grid", gridTemplateColumns: "repeat(5, 1fr)", gap: 10 }}>
               <StatCard label="EUR Income" value={fmt(eurTotals.income)} color="green"
                 detail={<div>{(() => { const inc = transactions.filter(t => t.isCredit && !t.isPAYE); const top = inc.sort((a,b)=>b.amount-a.amount).slice(0,5); return top.length ? top.map(t => <div key={t.id} style={{display:"flex",justifyContent:"space-between",fontSize:12,padding:"3px 0",borderBottom:"1px solid #252830"}}><span style={{color:T.textMid,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",maxWidth:"70%"}}>{t.description}</span><span style={{color:T.green,flexShrink:0}}>{fmt(t.amount)}</span></div>) : <div style={{color:T.textDim,fontSize:12}}>No income transactions yet</div>; })()}<div style={{fontSize:11,color:T.textDim,marginTop:6}}>Top 5 income transactions</div></div>}
               />
