@@ -1433,7 +1433,7 @@ export default function App() {
                     <div key={tx.id} className="tx-row" style={{ display: "flex", justifyContent: "space-between", alignItems: "center", padding: "8px 10px", borderRadius: 8 }} onClick={() => setTab("transactions")}>
                       <div style={{ minWidth: 0 }}>
                         <div style={{ fontSize: 12, color: T.text, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 180 }}>{tx.description}</div>
-                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` - ${tx.category}` : " - uncategorised"}{tx.category && <button onClick={e=>{e.stopPropagation();const kw=tx.description.split(" ").slice(0,3).join(" ").toLowerCase().trim();if(!kw)return;setRules(prev=>{const ex=prev.findIndex(r=>r.keywords?.includes(kw));if(ex>=0){alert("Rule for ""+kw+"" already exists.");return prev;}return[...prev,{id:Date.now().toString(),keywords:[kw],category:tx.category,created:today()}];});alert("Rule saved: ""+kw+"" → "+tx.category);}} style={{marginLeft:6,background:"rgba(240,160,60,0.1)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.3)",borderRadius:4,padding:"1px 5px",fontSize:9,cursor:"pointer",fontFamily:"inherit"}}>+ Rule</button>}</div>
+                        <div style={{ fontSize: 11, color: T.textDim }}>{dateStr(tx.date)}{tx.category ? ` - ${tx.category}` : " - uncategorised"}</div>
                       </div>
                       <span style={{ fontSize: 13, fontWeight: 600, color: tx.isCredit ? T.green : T.red, flexShrink: 0, marginLeft: 8 }}>
                         {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency)}
