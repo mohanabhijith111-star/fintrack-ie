@@ -2798,6 +2798,7 @@ function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGrou
         )}
         {!tx.isCredit && onSplit && !tx.splits && <button onClick={()=>onSplit(tx)} style={{background:"#1E2028",color:"#8B8DA0",border:"1px solid #252830",borderRadius:5,padding:"2px 7px",fontSize:10,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Split</button>}
         {tx.splits && <span style={{background:"rgba(74,143,212,0.09)",color:"#4A8FD4",border:"1px solid rgba(74,143,212,0.25)",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>Split</span>}
+        {tx.category && onCreateRule && (<button onClick={()=>onCreateRule(tx)} title="Save as rule for future imports" style={{background:"rgba(240,160,60,0.1)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.3)",borderRadius:5,padding:"2px 6px",fontSize:9,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>+ Rule</button>)}
         <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
       </div>
 
