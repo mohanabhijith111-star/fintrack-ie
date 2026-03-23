@@ -2109,7 +2109,7 @@ export default function App() {
               {rules.length === 0 && <div style={{ color: T.textDim, fontSize: 13 }}>No rules yet. They are created automatically when you categorise a transaction, or add one manually above.</div>}
               <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
                 {rules.map(r => (
-                  <RuleEditor
+                  <RuleEditor transactions={transactions}
                     key={r.id}
                     rule={r}
                     overheadGroups={OVERHEAD_GROUPS}
