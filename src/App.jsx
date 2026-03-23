@@ -3112,7 +3112,6 @@ function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) 
           )}
         </div>
       )}
-      ))}
     </div>
   );
 }
