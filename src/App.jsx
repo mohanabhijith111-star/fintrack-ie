@@ -919,22 +919,40 @@ export default function App() {
     }).sort((a, b) => b.date.localeCompare(a.date));
   }, [transactions, txFilter, txSearch, txDateFrom, txDateTo]);
 
+  const [timelineYear, setTimelineYear] = useState(new Date().getFullYear());
+  const timelineYears = useMemo(() => {
+    const txYears = transactions.map(t => parseInt(t.date.substring(0,4)));
+    const min = txYears.length ? Math.min(...txYears) : new Date().getFullYear();
+    const max = new Date().getFullYear() + 1;
+    const years = [];
+    for (let y = min; y <= max; y++) years.push(y);
+    return years;
+  }, [transactions]);
   const timeline60 = useMemo(() => {
-    const now = new Date(); now.setHours(0, 0, 0, 0);
-    const lastTxDate = transactions.length ? new Date(transactions.reduce((a,b) => a.date > b.date ? a : b).date + "T12:00:00") : now; const end = new Date(lastTxDate); end.setFullYear(end.getFullYear()+1);
+    const yearStart = new Date(timelineYear, 0, 1);
+    const yearEnd = new Date(timelineYear, 11, 31, 23, 59, 59);
+    const today = new Date(); today.setHours(0,0,0,0);
     const events = [];
-    if (firstPayday && payroll) {
-      getPaydays(firstPayday, taxProfile.payFrequency, 52).forEach(d => {
-        if (d >= now && d <= end) events.push({ date: d, label: "Payday (PAYE)", amount: payroll.perNet, currency: "EUR", type: "income" });
+    // Past + present: actual transactions for this year
+    transactions.filter(t => {
+      const d = new Date(t.date + 'T12:00:00');
+      return d >= yearStart && d <= yearEnd;
+    }).forEach(t => {
+      events.push({
+        date: new Date(t.date + 'T12:00:00'),
+        label: t.description,
+        amount: parseFloat(t.amount) || 0,
+        currency: t.currency || 'EUR',
+        type: t.isCredit ? 'income' : 'expense',
+        actual: true,
+        category: t.category
       });
-    }
-    // Salary projection - only project salary category transactions
+    });
+    // Future: salary projections
     const salaryTxs = transactions.filter(t => t.isCredit && (t.category === 'Salary' || t.category === 'salary'));
-    const lastSalary = salaryTxs.sort((a,b) => new Date(b.date) - new Date(a.date))[0];
+    const lastSalary = salaryTxs.sort((a,b) => new Date(b.date)-new Date(a.date))[0];
     if (lastSalary) {
-      // Detect salary frequency from recurring salary transactions
-      const salaryDates = salaryTxs.sort((a,b) => new Date(a.date)-new Date(b.date)).map(t=>t.date);
-      const recurring = salaryDates.length > 1 ? detectRecurring(salaryTxs) : [];
+      const recurring = salaryTxs.length > 1 ? detectRecurring(salaryTxs) : [];
       const salaryRecurrence = recurring[0]?.recurrence || 'monthly';
       const salaryAmount = parseFloat(lastSalary.amount) || 0;
       let next = new Date(lastSalary.date + 'T12:00:00');
@@ -942,32 +960,42 @@ export default function App() {
         if (salaryRecurrence === 'weekly') next = new Date(next.getTime() + 7*86400000);
         else if (salaryRecurrence === 'fortnightly') next = new Date(next.getTime() + 14*86400000);
         else { next = new Date(next); next.setMonth(next.getMonth()+1); }
-        if (next > end) break;
-        // Check if actual salary already received for this period (within 5 days)
-        const alreadyReceived = salaryTxs.some(t => Math.abs(new Date(t.date)-next) < 5*86400000);
-        if (next >= now && !alreadyReceived) {
+        if (next > yearEnd) break;
+        if (next < yearStart) continue;
+        const alreadyReceived = salaryTxs.some(t => Math.abs(new Date(t.date+'T12:00:00')-next) < 5*86400000);
+        if (next >= today && !alreadyReceived) {
           events.push({ date: new Date(next), label: lastSalary.description, amount: salaryAmount, currency: lastSalary.currency||'EUR', type: 'income', projected: true });
         }
       }
     }
+    // Future: PAYE payroll
+    if (firstPayday && payroll) {
+      getPaydays(firstPayday, taxProfile.payFrequency, 52).forEach(d => {
+        if (d >= today && d >= yearStart && d <= yearEnd)
+          events.push({ date: d, label: 'Payday (PAYE)', amount: payroll.perNet, currency: 'EUR', type: 'income', projected: true });
+      });
+    }
+    // Future: committed bills
     committed.forEach(ce => {
       const dates = projectDates(ce.startDate, ce.recurrence, 365);
       dates.forEach(({ effective, shifted, scheduled }) => {
-        const d = new Date(effective + "T12:00:00");
-        if (d >= now && d <= end) events.push({ date: d, label: ce.name + (shifted ? ` (moved from ${scheduled})` : ""), amount: parseFloat(ce.amount), currency: ce.currency, type: "bill", shifted });
+        const d = new Date(effective + 'T12:00:00');
+        if (d >= today && d >= yearStart && d <= yearEnd)
+          events.push({ date: d, label: ce.name + (shifted ? ' (moved from '+scheduled+')' : ''), amount: parseFloat(ce.amount), currency: ce.currency, type: 'bill', shifted, projected: true });
       });
     });
+    // Future: debt payments
     debts.forEach(dbt => {
       if (dbt.dueDate) {
-        const d = new Date(dbt.dueDate + "T12:00:00");
-        if (d >= now && d <= end) {
-          const pmt = parseFloat(dbt.knownPayment) || calcPMT(parseFloat(dbt.balance), parseFloat(dbt.rate), parseInt(dbt.termMonths), dbt.paymentFrequency || "monthly") || 0;
-          events.push({ date: d, label: dbt.name + " repayment", amount: pmt, currency: dbt.currency, type: "debt" });
+        const d = new Date(dbt.dueDate + 'T12:00:00');
+        if (d >= today && d >= yearStart && d <= yearEnd) {
+          const pmt = parseFloat(dbt.knownPayment) || calcPMT(parseFloat(dbt.balance), parseFloat(dbt.rate), parseInt(dbt.termMonths), dbt.paymentFrequency||'monthly') || 0;
+          events.push({ date: d, label: dbt.name + ' repayment', amount: pmt, currency: dbt.currency, type: 'debt', projected: true });
         }
       }
     });
-    return events.sort((a, b) => a.date - b.date);
-  }, [firstPayday, payroll, taxProfile.payFrequency, transactions, committed, debts]);
+    return events.sort((a,b) => a.date - b.date);
+  }, [timelineYear, transactions, firstPayday, payroll, taxProfile.payFrequency, committed, debts]);
 
   // -- Actions ------------------------------------------------------------------
 
@@ -1962,33 +1990,32 @@ export default function App() {
 
         {/* -- TIMELINE ---------------------------------------------------------- */}
         {tab === "timeline" && (
-          <div style={{ ...S.card, overflow: "hidden" }}>
-            <div style={{ padding: "16px 20px", borderBottom: "1px solid #252830" }}>
-              <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>12-Month Cash Flow</div>
-              <div style={{ fontSize: 12, color: T.textDim }}>Salary, committed costs and debt payments projected to same date next year, with Irish banking day adjustments applied.</div>
+          <div style={{ display:"flex",flexDirection:"column",gap:12 }}>
+            <div style={{ ...S.card, padding:"14px 20px" }}>
+              <div style={{ display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:8 }}>
+                <div><div className="hn" style={{ fontSize:15,fontWeight:700 }}>Cash Flow Timeline</div><div style={{ fontSize:12,color:T.textDim,marginTop:2 }}>Actual transactions + projected salary, bills and debts</div></div>
+                <div style={{ display:"flex",gap:4 }}>{timelineYears.map(y=>(<button key={y} onClick={()=>setTimelineYear(y)} style={{ padding:"5px 12px",borderRadius:8,border:"none",cursor:"pointer",fontFamily:"inherit",fontSize:12,fontWeight:timelineYear===y?700:400,background:timelineYear===y?T.accent:T.surfaceHigh,color:timelineYear===y?"#0E0E10":T.textMid }}>{y}</button>))}</div>
+              </div>
             </div>
-            <div style={{ display: "flex", flexDirection: "column" }}>
-              {timeline60.length === 0 && <div style={{ padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>No events projected. Categorise salary transactions, set up committed, committed costs or debts.</div>}
-              {timeline60.map((ev, i) => {
-                const colors = { income: T.green, bill: T.accent, debt: T.red };
+            <div style={{ ...S.card, overflow:"hidden" }}>
+              {timeline60.length === 0 && <div style={{ padding:40,textAlign:"center",color:T.textDim,fontSize:13 }}>No data for {timelineYear}. Import transactions or set up committed expenses.</div>}
+              {timeline60.map((ev,i) => {
+                const colors = { income:T.green, expense:T.red, bill:T.accent, debt:T.red };
                 const c = colors[ev.type] || T.textMid;
-                const now = new Date(); now.setHours(0, 0, 0, 0);
-                const daysAway = Math.ceil((ev.date - now) / 86400000);
+                const today = new Date(); today.setHours(0,0,0,0);
+                const isPast = ev.date < today;
                 return (
-                  <div key={i} className="row-hover" style={{ display: "flex", alignItems: "center", gap: 10, padding: "11px 14px", borderBottom: "1px solid #252830" }}>
-                    <div style={{ width: 72, flexShrink: 0 }}>
-                      <div style={{ fontSize: 11, fontWeight: 600, color: T.textMid }}>{ev.date.toLocaleDateString("en-IE", { day: "numeric", month: "short" })}</div>
-                      <div style={{ fontSize: 10, color: T.textDim }}>{daysAway === 0 ? "Today" : "in " + daysAway + "d"}</div>{ev.projected && <span style={{fontSize:9,color:T.textDim,marginLeft:2}}>est.</span>}
+                  <div key={i} className="row-hover" style={{ display:"flex",alignItems:"center",gap:10,padding:"10px 14px",borderBottom:"1px solid #252830",opacity:isPast?0.75:1 }}>
+                    <div style={{ width:72,flexShrink:0 }}>
+                      <div style={{ fontSize:11,fontWeight:600,color:T.textMid }}>{ev.date.toLocaleDateString("en-IE",{day:"numeric",month:"short"})}</div>
+                      <div style={{ fontSize:10,color:T.textDim }}>{isPast ? ev.date.getFullYear() : (Math.ceil((ev.date-today)/86400000)===0?"Today":"in "+Math.ceil((ev.date-today)/86400000)+"d")}</div>
                     </div>
-                    <div style={{ fontSize: 13, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>{ev.label}</div>
-                    <div style={{ fontSize: 13, fontWeight: 700, color: c, flexShrink: 0 }}>
-                      {ev.type === "income" ? "+" : "-"}{fmt(ev.amount, ev.currency)}
+                    <div style={{ flex:1,minWidth:0 }}>
+                      <div style={{ fontSize:12,color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap" }}>{ev.label}</div>
+                      {ev.category && <div style={{ fontSize:10,color:T.textDim }}>{ev.category}</div>}
                     </div>
-                    <div style={{ flexShrink: 0 }}>
-                      <Badge color={ev.type === "income" ? "green" : ev.type === "bill" ? "accent" : "red"}>
-                        {ev.type}
-                      </Badge>
-                    </div>
+                    <div style={{ fontSize:13,fontWeight:700,color:c,flexShrink:0 }}>{ev.type==="income"?"+":"-"}{fmt(ev.amount,ev.currency)}</div>
+                    <Badge color={ev.actual?"dim":ev.type==="income"?"green":ev.type==="bill"?"accent":"red"}>{ev.actual?"actual":"est."}</Badge>
                   </div>
                 );
               })}
