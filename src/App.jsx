@@ -2003,6 +2003,7 @@ export default function App() {
                   isFirst={i === 0}
                   timeline60={timeline60}
                   linkedAsset={assets.find(a => a.id === d.linkedAssetId) || null}
+                  transactions={transactions}
                   onChange={updated => setDebts(prev => prev.map(x => x.id === d.id ? updated : x))}
                   onDelete={() => setDebts(prev => prev.filter(x => x.id !== d.id))}
                 />
@@ -2363,756 +2364,149 @@ function AssetCard({ asset, linkedDebts, onChange, onDelete }) {
 }
 
 
-function DebtCard({ debt, isFirst, onChange, onDelete, timeline60, linkedAsset }) {
+function DebtCard({ debt, onChange, onDelete, transactions }) {
   const [editing, setEditing] = useState(false);
+  const [showHistory, setShowHistory] = useState(true);
   const [form, setForm] = useState({
-    name: debt.name || "",
-    total: debt.total || debt.balance || "",
-    balance: debt.balance || "",
-    balanceAsOf: debt.balanceAsOf || today(),
-    currency: debt.currency || "EUR",
-    rate: debt.rate || "",
-    termMonths: debt.termMonths || "",
-    paymentFrequency: debt.paymentFrequency || "monthly",
-    knownPayment: debt.knownPayment || "",
-    dueDate: debt.dueDate || "",
+    name: debt.name||'', type: debt.type||'loan',
+    total: debt.total||debt.balance||'',
+    balance: debt.balance||'', balanceAsOf: debt.balanceAsOf||today(),
+    currency: debt.currency||'EUR', rate: debt.rate||'',
+    termMonths: debt.termMonths||'', knownPayment: debt.knownPayment||'',
+    dueDate: debt.dueDate||'', originationDate: debt.originationDate||'',
+    paymentFrequency: debt.paymentFrequency||'monthly',
   });
-  const [paymentAmt, setPaymentAmt] = useState("");
-  const [paymentNote, setPaymentNote] = useState("");
-  const [showPayment, setShowPayment] = useState(false);
-  const [lastPayment, setLastPayment] = useState(null);
+  // Sync when debt changes externally
+  const prevBal = useRef(debt.balance);
+  if (prevBal.current !== debt.balance) { prevBal.current=debt.balance; if(!editing) setForm(f=>({...f,balance:debt.balance,balanceAsOf:today()})); }
 
-  // Sync form balance when debt changes externally (repayment applied from transaction)
-  const prevBalanceRef = useRef(debt.balance);
-  if (prevBalanceRef.current !== debt.balance) {
-    prevBalanceRef.current = debt.balance;
-    if (!editing) setForm(f => ({ ...f, balance: debt.balance, balanceAsOf: today() }));
-  }
+  const balance = parseFloat(debt.balance)||0;
+  const original = parseFloat(debt.total||debt.balance)||balance;
+  const rate = parseFloat(debt.rate)||0;
+  const term = parseInt(debt.termMonths)||0;
+  const freq = debt.paymentFrequency||'monthly';
+  const knownPmt = parseFloat(debt.knownPayment)||0;
+  const monthlyPayment = knownPmt || calcPMT(balance, rate, term, freq) || 0;
+  const payoffMonths = calcPayoffMonths(balance, rate, monthlyPayment, freq);
+  const payoffDate = payoffMonths ? new Date(Date.now()+payoffMonths*30.44*86400000).toLocaleDateString('en-IE',{month:'short',year:'numeric'}) : null;
+  const pct = original>0 ? Math.min(100,((original-balance)/original)*100) : 0;
+  const periodicRate = rate/100/(({monthly:12,fortnightly:26,weekly:52})[freq]||12);
 
-  const rawBalance = parseFloat(form.balance) || 0;
-  const total = parseFloat(form.total) || rawBalance;
-  const rate = parseFloat(form.rate) || 0;
-  const term = parseInt(form.termMonths) || 0;
-  const freq = form.paymentFrequency || "monthly";
-  // BNPL: auto-calculate remaining balance from opening date if no payments recorded
-  const balance = (() => {
-    if (debt.type !== "bnpl" || !form.balanceAsOf || !term || !total) return rawBalance;
-    if ((debt.paymentHistory || []).length > 0) return rawBalance;
-    const instalment = total / term;
-    const asOf = new Date(form.balanceAsOf + "T12:00:00");
-    const now = new Date();
-    const monthsElapsed = (now.getFullYear() - asOf.getFullYear()) * 12 + (now.getMonth() - asOf.getMonth());
-    return parseFloat(Math.max(0, rawBalance - Math.max(0, monthsElapsed) * instalment).toFixed(2));
+  // Collect payments from transactions by description match + manual history
+  const kw = (debt.name||'').toLowerCase().split(' ').filter(w=>w.length>3).slice(0,2);
+  const txPayments = (transactions||[]).filter(t=>
+    !t.isCredit && kw.length>0 && kw.some(w=>(t.description||'').toLowerCase().includes(w))
+  ).map(t=>({id:t.id,date:t.date,description:t.description,amount:parseFloat(t.amount)||0,source:'tx'}));
+  const manualPayments = (debt.paymentHistory||[]).map(p=>({...p,source:'manual'}));
+  const allPayments = [...txPayments,...manualPayments]
+    .filter((p,i,a)=>a.findIndex(x=>x.id===p.id)===i)
+    .sort((a,b)=>b.date?.localeCompare(a.date));
+
+  // Build running balance from oldest to newest for display
+  const paymentsWithBalance = (() => {
+    const sorted = [...allPayments].sort((a,b)=>a.date?.localeCompare(b.date));
+    let bal = original;
+    return sorted.map(p=>{
+      const interest = bal*periodicRate;
+      const principal = Math.min(bal,Math.max(0,p.amount-interest));
+      bal = Math.max(0,bal-principal);
+      return {...p,interest:periodicRate>0?interest:0,principal:periodicRate>0?principal:p.amount,balanceAfter:bal};
+    }).reverse();
   })();
-  const pct = total > 0 ? Math.min(100, ((total - balance) / total) * 100) : 0;
 
-  const periodicPayment = calcPMT(balance, rate, term, freq);
-  // Monthly equivalent for display
-  const monthlyEquiv = freq === "fortnightly" ? periodicPayment * 26 / 12
-    : freq === "weekly" ? periodicPayment * 52 / 12
-    : periodicPayment;
-  const totalInterest = term > 0 && periodicPayment > 0
-    ? (periodicPayment * (freq === "fortnightly" ? Math.round(term * 26/12) : freq === "weekly" ? Math.round(term * 52/12) : term)) - balance
-    : 0;
-  const payoffMonths = term > 0 ? term : calcPayoffMonths(balance, rate, parseFloat(form.knownPayment) || periodicPayment, freq);
-  const payoffDate = payoffMonths
-    ? new Date(Date.now() + payoffMonths * 30.44 * 86400000).toLocaleDateString("en-IE", { month: "short", year: "numeric" })
-    : null;
+  const debtTypeLabels = {loan:'Loan',bnpl:'BNPL',mortgage:'Mortgage',credit:'Credit Card',internal:'Personal Loan'};
 
-  // Auto-calculate term from known payment + rate
-  const suggestedTerm = (form.knownPayment && rate && !term)
-    ? calcTermFromPayment(balance, rate, parseFloat(form.knownPayment), freq)
-    : null;
-
-  // Suggested due date from cash flow
-  const suggestedDueDate = timeline60
-    ? calcOptimalDueDate(timeline60, periodicPayment || parseFloat(debt.balance) || 0)
-    : null;
-
-  function save() {
-    onChange({ ...debt, ...form });
-    setEditing(false);
-  }
-
-  function applyPayment() {
-    const amt = parseFloat(paymentAmt);
-    if (!amt || amt <= 0) return;
-    // Split payment into interest and principal
-    const periodicRate = rate / 100 / (DEBT_FREQ[freq] || 12);
-    const interestPortion = balance * periodicRate;
-    const principalPortion = Math.min(balance, Math.max(0, amt - interestPortion));
-    const newBalance = Math.max(0, balance - principalPortion);
-    const entry = {
-      date: today(),
-      totalPayment: amt,
-      interest: parseFloat(interestPortion.toFixed(2)),
-      principal: parseFloat(principalPortion.toFixed(2)),
-      prevBalance: balance,
-      newBalance: parseFloat(newBalance.toFixed(2)),
-      note: paymentNote,
-    };
-    const newForm = { ...form, balance: newBalance.toFixed(2), balanceAsOf: today() };
-    setForm(newForm);
-    const history = [...(debt.paymentHistory || []), entry];
-    onChange({ ...debt, ...newForm, paymentHistory: history });
-    setLastPayment(entry);
-    setPaymentAmt("");
-    setPaymentNote("");
-    setShowPayment(false);
-  }
-
-  function useSuggestedDate() {
-    if (suggestedDueDate) {
-      setForm(f => ({ ...f, dueDate: suggestedDueDate }));
-      onChange({ ...debt, ...form, dueDate: suggestedDueDate });
-    }
-  }
-
-  const fld = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
+  function save() { onChange({...debt,...form}); setEditing(false); }
 
   return (
-    <div style={{ ...S.card, overflow: "hidden" }}>
+    <div style={{...S.card,overflow:'hidden'}}>
       {/* Header */}
-      <div style={{ padding: "14px 16px", display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, flexWrap: "wrap" }}>
-            <span className="hn" style={{ fontSize: 14, fontWeight: 700 }}>{debt.name}</span>
-            {isFirst && <Badge color="red">Avalanche Priority</Badge>}
-            {rate > 0 && <Badge color="accent">{rate}% APR</Badge>}
-            {freq !== "monthly" && <Badge color="dim">{freq === "fortnightly" ? "Fortnightly" : "Weekly"}</Badge>}
-            {(debt.knownPayment || periodicPayment > 0) && (
-              <Badge color="dim">
-                {fmt(parseFloat(debt.knownPayment) || periodicPayment, debt.currency)}{" "}
-                {freq === "fortnightly" ? "/ fortnight" : freq === "weekly" ? "/ week" : "/ month"}
-              </Badge>
-            )}
+      <div style={{padding:'16px 20px',borderBottom:editing||showHistory?'1px solid #252830':'none'}}>
+        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+          <div style={{flex:1,minWidth:0}}>
+            <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
+              <span className="hn" style={{fontSize:15,fontWeight:700,color:T.text}}>{debt.name}</span>
+              <Badge color="dim">{debtTypeLabels[debt.type]||'Loan'}</Badge>
+              {rate>0&&<Badge color="dim">{rate}% p.a.</Badge>}
+            </div>
+            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+              <div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Balance</div><div style={{fontSize:18,fontWeight:700,color:T.red}}>{fmt(balance,debt.currency)}</div><div style={{fontSize:10,color:T.textDim}}>as of {debt.balanceAsOf||'now'}</div></div>
+              {monthlyPayment>0&&<div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Monthly</div><div style={{fontSize:16,fontWeight:600,color:T.accent}}>{fmt(monthlyPayment,debt.currency)}</div></div>}
+              {payoffDate&&<div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Payoff</div><div style={{fontSize:14,fontWeight:600,color:T.green}}>{payoffDate}</div></div>}
+              {debt.dueDate&&<div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Next due</div><div style={{fontSize:13,fontWeight:500,color:T.text}}>{new Date(debt.dueDate+'T12:00:00').toLocaleDateString('en-IE',{day:'numeric',month:'short'})}</div></div>}
+            </div>
           </div>
-          {form.dueDate && (
-            <div style={{ fontSize: 11, color: T.textDim, marginTop: 2 }}>
-              Next payment: {dateStr(form.dueDate)}
-              {suggestedDueDate && suggestedDueDate !== form.dueDate && (
-                <button onClick={useSuggestedDate}
-                  style={{ marginLeft: 8, background: "none", border: "1px solid rgba(61,184,122,0.31)", borderRadius: 4, padding: "1px 6px", fontSize: 10, color: T.green, cursor: "pointer", fontFamily: "inherit" }}>
-                  Better date: {dateStr(suggestedDueDate)}
-                </button>
-              )}
-            </div>
-          )}
-          {debt.balanceAsOf && (
-            <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>
-              Balance recorded as of {dateStr(debt.balanceAsOf)}
-            </div>
-          )}
+          <div style={{display:'flex',gap:6,flexShrink:0}}>
+            <button onClick={()=>setEditing(e=>!e)} style={{background:editing?T.accentDim+'40':T.surfaceHigh,color:editing?T.accent:T.textMid,border:'1px solid '+(editing?T.accent+'50':T.border),borderRadius:6,padding:'5px 10px',fontSize:11,cursor:'pointer',fontFamily:'inherit'}}>{editing?'Cancel':'Edit'}</button>
+            <button onClick={onDelete} style={{background:'none',border:'none',color:T.textDim,cursor:'pointer',padding:4}}><Trash2 size={13}/></button>
+          </div>
         </div>
-        <div style={{ display: "flex", gap: 6 }}>
-          <button onClick={() => { setShowPayment(false); setEditing(e => !e); }}
-            style={{ background: editing ? T.accentDim+"40" : T.surfaceHigh, color: editing ? T.accent : T.textMid, border: `1px solid ${editing ? T.accent+"50" : T.border}`, borderRadius: 6, padding: "5px 10px", fontSize: 11, cursor: "pointer", fontFamily: "inherit" }}>
-            {editing ? "Cancel" : "Edit"}
-          </button>
-          <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4 }}>
-            <Trash2 size={13} />
-          </button>
-        </div>
+        {/* Progress bar */}
+        {original>0&&<div style={{marginTop:12}}>
+          <div style={{display:'flex',justifyContent:'space-between',fontSize:10,color:T.textDim,marginBottom:4}}>
+            <span>{pct.toFixed(1)}% paid</span>
+            <span>{fmt(original-balance,debt.currency)} of {fmt(original,debt.currency)}</span>
+          </div>
+          <div style={{height:5,background:T.border,borderRadius:3}}>
+            <div style={{height:'100%',width:pct+'%',background:pct>=100?T.green:T.accent,borderRadius:3,transition:'width 0.3s'}}/>
+          </div>
+        </div>}
       </div>
 
       {/* Edit form */}
-      {editing && (
-        <div style={{ padding: "14px 16px", borderTop: "1px solid #252830" }}>
-          <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 10 }}>
-            <Input label="Name" value={form.name} onChange={fld("name")} />
-            <Input label="Original loan amount" type="number" value={form.total} onChange={fld("total")} placeholder="0.00" />
-            <div>
-              <label style={S.label}>Balance</label>
-              <input type="number" value={form.balance} onChange={fld("balance")} placeholder="0.00"
-                style={{ ...S.input, marginBottom: 4 }} />
-              <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0 }}>as of</span>
-                <input type="date" value={form.balanceAsOf} onChange={fld("balanceAsOf")}
-                  style={{ ...S.input, fontSize: 11, padding: "5px 8px" }} />
-              </div>
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>
-                Set to a past date if this is an existing loan
-              </div>
-            </div>
-            <Select label="Currency" value={form.currency} onChange={fld("currency")}>
-              {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-            </Select>
-            <Select label="Payment frequency" value={form.paymentFrequency} onChange={fld("paymentFrequency")}>
-              <option value="monthly">Monthly</option>
-              <option value="fortnightly">Fortnightly</option>
-              <option value="weekly">Weekly</option>
-            </Select>
-            <Input label="Interest rate % p.a." type="number" value={form.rate} onChange={fld("rate")} placeholder="e.g. 8.5" />
-            <div>
-              <label style={S.label}>Term (months)</label>
-              <input type="number" value={form.termMonths} onChange={fld("termMonths")} placeholder="e.g. 60"
-                style={{ ...S.input, marginBottom: 4 }} />
-              {suggestedTerm && (
-                <button onClick={() => setForm(f => ({ ...f, termMonths: suggestedTerm.toString() }))}
-                  style={{ background: T.accentDim+"40", color: T.accent, border: "1px solid rgba(240,160,60,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
-                  Calculate from payment: {suggestedTerm} months ({Math.round(suggestedTerm/12 * 10)/10} yrs)
-                </button>
-              )}
-            </div>
-            <div>
-              <label style={S.label}>Known {form.paymentFrequency || "monthly"} payment</label>
-              <input type="number" value={form.knownPayment} onChange={fld("knownPayment")} placeholder="e.g. 250.00"
-                style={{ ...S.input }} />
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 3 }}>
-                Enter your actual repayment - term will be calculated automatically
-              </div>
-            </div>
-            <div>
-              <label style={S.label}>Next due date</label>
-              <div style={{ display: "flex", gap: 4 }}>
-                <input type="date" value={form.dueDate} onChange={fld("dueDate")} style={{ ...S.input, flex: 1 }} />
-              </div>
-              {suggestedDueDate && (
-                <button onClick={useSuggestedDate}
-                  style={{ marginTop: 4, background: T.greenDim, color: T.green, border: "1px solid rgba(61,184,122,0.25)", borderRadius: 6, padding: "4px 8px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
-                  Use cash-flow optimal: {dateStr(suggestedDueDate)}
-                </button>
-              )}
-            </div>
+      {editing&&(
+        <div style={{padding:'16px 20px',borderBottom:'1px solid #252830',background:T.surfaceHigh}}>
+          <div style={{display:'grid',gridTemplateColumns:'repeat(auto-fill,minmax(130px,1fr))',gap:10}}>
+            <div style={{gridColumn:'span 2'}}><label style={S.label}>Debt name</label><input value={form.name} onChange={e=>setForm(p=>({...p,name:e.target.value}))} style={S.input}/></div>
+            <div><label style={S.label}>Type</label><select value={form.type} onChange={e=>setForm(p=>({...p,type:e.target.value}))} style={{...S.input,fontSize:12}}><option value="loan">Fixed-Term Loan</option><option value="bnpl">BNPL</option><option value="mortgage">Mortgage</option><option value="credit">Credit Card</option><option value="internal">Personal Loan</option></select></div>
+            <div><label style={S.label}>Currency</label><select value={form.currency} onChange={e=>setForm(p=>({...p,currency:e.target.value}))} style={{...S.input,fontSize:12}}>{['EUR','GBP','USD','INR'].map(c=><option key={c}>{c}</option>)}</select></div>
+            <div><label style={S.label}>Original amount</label><input type="number" value={form.total} onChange={e=>setForm(p=>({...p,total:e.target.value}))} placeholder="0.00" style={S.input}/></div>
+            <div><label style={S.label}>Origination date</label><input type="date" value={form.originationDate} onChange={e=>setForm(p=>({...p,originationDate:e.target.value}))} style={S.input}/></div>
+            <div><label style={S.label}>Current balance</label><input type="number" value={form.balance} onChange={e=>setForm(p=>({...p,balance:e.target.value}))} placeholder="0.00" style={S.input}/></div>
+            <div><label style={S.label}>Balance as of</label><input type="date" value={form.balanceAsOf} onChange={e=>setForm(p=>({...p,balanceAsOf:e.target.value}))} style={S.input}/></div>
+            <div><label style={S.label}>Interest rate % p.a.</label><input type="number" value={form.rate} onChange={e=>setForm(p=>({...p,rate:e.target.value}))} placeholder="e.g. 8.5" style={S.input}/></div>
+            <div><label style={S.label}>Term (months)</label><input type="number" value={form.termMonths} onChange={e=>setForm(p=>({...p,termMonths:e.target.value}))} placeholder="e.g. 24" style={S.input}/></div>
+            <div><label style={S.label}>Known monthly payment</label><input type="number" value={form.knownPayment} onChange={e=>setForm(p=>({...p,knownPayment:e.target.value}))} placeholder="e.g. 137" style={S.input}/></div>
+            <div><label style={S.label}>Next due date</label><input type="date" value={form.dueDate} onChange={e=>setForm(p=>({...p,dueDate:e.target.value}))} style={S.input}/></div>
           </div>
-          <Btn onClick={save}><Check size={12} /> Save Changes</Btn>
+          <button onClick={save} style={{marginTop:12,background:T.accent,color:'#0E0E10',border:'none',borderRadius:7,padding:'7px 18px',fontSize:12,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>Save changes</button>
         </div>
       )}
 
-      {/* Stats */}
-      <div style={{ padding: "0 16px 14px" }}>
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 12 }}>
-          <div>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Balance</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.red }}>{fmt(balance, debt.currency)}</div>
-            {debt.balanceAsOf && (
-              <div style={{ fontSize: 10, color: T.textDim, marginTop: 1 }}>as of {dateStr(debt.balanceAsOf)}</div>
-            )}
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>
-              {freq === "fortnightly" ? "Fortnightly" : freq === "weekly" ? "Weekly" : "Monthly"} Payment
-            </div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.accent }}>
-              {periodicPayment > 0 ? fmt(periodicPayment, debt.currency)
-                : form.knownPayment ? fmt(parseFloat(form.knownPayment), debt.currency)
-                : <span style={{ color: T.textDim, fontSize: 12 }}>Set rate & term</span>}
-            </div>
-            {freq !== "monthly" && monthlyEquiv > 0 && (
-              <div style={{ fontSize: 10, color: T.textDim }}>- {fmt(monthlyEquiv, debt.currency)}/mo</div>
-            )}
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Total Interest</div>
-            <div style={{ fontSize: 16, fontWeight: 700, color: T.textMid }}>
-              {totalInterest > 0 ? fmt(totalInterest, debt.currency) : "-"}
-            </div>
-          </div>
-          <div>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 2 }}>Payoff</div>
-            <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{payoffDate || (term > 0 ? "-" : "Set term")}</div>
-            {payoffMonths && <div style={{ fontSize: 10, color: T.textDim }}>{payoffMonths} months</div>}
-          </div>
-        </div>
-
-        <MiniBar pct={pct} color={pct > 75 ? "green" : "accent"} />
-        <div style={{ fontSize: 11, color: T.textDim, marginTop: 4 }}>{pct.toFixed(1)}% paid off {total > 0 && ("of " + fmt(total, debt.currency))}</div>
-
-        {/* Linked asset panel */}
-        {linkedAsset && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.19)" }}>
-            <div style={{ fontSize: 11, fontWeight: 600, color: T.green, marginBottom: 4 }}>Linked Asset: {linkedAsset.name}</div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 8 }}>
-              <div>
-                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.07em" }}>Shares Balance</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.green }}>{fmt(parseFloat(linkedAsset.balance), linkedAsset.currency)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.07em" }}>Loan Balance</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: T.red }}>{fmt(balance, debt.currency)}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.07em" }}>Net Equity</div>
-                <div style={{ fontSize: 13, fontWeight: 700, color: (parseFloat(linkedAsset.balance) - balance) >= 0 ? T.green : T.red }}>
-                  {fmt(parseFloat(linkedAsset.balance) - balance, debt.currency)}
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Last payment confirmation with principal/interest split */}
-        {lastPayment && (
-          <div style={{ marginTop: 10, padding: "10px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", fontSize: 11 }}>
-            <div style={{ fontWeight: 600, color: T.green, marginBottom: 4 }}>
-              Payment of {fmt(lastPayment.totalPayment, debt.currency)} applied on {dateStr(lastPayment.date)}
-            </div>
-            <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(80px, 1fr))", gap: 6 }}>
-              <div><span style={{ color: T.textDim }}>Principal: </span><span style={{ color: T.text, fontWeight: 600 }}>{fmt(lastPayment.principal, debt.currency)}</span></div>
-              <div><span style={{ color: T.textDim }}>Interest: </span><span style={{ color: T.red, fontWeight: 600 }}>{fmt(lastPayment.interest, debt.currency)}</span></div>
-              <div><span style={{ color: T.textDim }}>Balance: </span><span style={{ color: T.text, fontWeight: 600 }}>{fmt(lastPayment.newBalance, debt.currency)}</span></div>
-            </div>
-            {lastPayment.note && <div style={{ color: T.textDim, marginTop: 4 }}>{lastPayment.note}</div>}
-          </div>
-        )}
-
-        {/* Payment history */}
-        {debt.paymentHistory && debt.paymentHistory.length > 0 && (
-          <div style={{ marginTop: 10 }}>
-            <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>
-              Payment History ({debt.paymentHistory.length})
-              {debt.paymentHistory.length > 0 && (
-                <span style={{ marginLeft: 8, color: T.textDim }}>
-                  Total interest paid: {fmt(debt.paymentHistory.reduce((s, p) => s + p.interest, 0), debt.currency)}
-                </span>
-              )}
-            </div>
-            <div style={{ maxHeight: 180, overflowY: "auto", display: "flex", flexDirection: "column", gap: 3 }}>
-              {[...debt.paymentHistory].reverse().map((p, i) => (
-                <div key={i} style={{ display: "flex", gap: 8, alignItems: "center", padding: "5px 8px", borderRadius: 6, background: T.bg, fontSize: 11 }}>
-                  <span style={{ color: T.textDim, width: 76, flexShrink: 0 }}>{dateStr(p.date)}</span>
-                  <span style={{ color: T.text, fontWeight: 600, flexShrink: 0 }}>{fmt(p.totalPayment, debt.currency)}</span>
-                  <span style={{ color: T.textDim, fontSize: 10 }}>
-                    principal {fmt(p.principal, debt.currency)} + interest {fmt(p.interest, debt.currency)}
-                  </span>
-                  {p.note && <span style={{ color: T.textDim, marginLeft: "auto", fontSize: 10, fontStyle: "italic" }}>{p.note}</span>}
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Suggested due date (when no date set) */}
-        {!form.dueDate && suggestedDueDate && (
-          <div style={{ marginTop: 10, padding: "8px 12px", borderRadius: 8, background: T.greenDim, border: "1px solid rgba(61,184,122,0.25)", display: "flex", justifyContent: "space-between", alignItems: "center", gap: 8 }}>
-            <div>
-              <div style={{ fontSize: 11, fontWeight: 600, color: T.green }}>Cash-flow optimal payment date</div>
-              <div style={{ fontSize: 11, color: T.textDim }}>Based on your income & committed expenses - most headroom on {dateStr(suggestedDueDate)}.</div>
-            </div>
-            <button onClick={useSuggestedDate}
-              style={{ background: T.green, color: "#0E0E10", border: "none", borderRadius: 6, padding: "5px 10px", fontSize: 11, fontWeight: 700, cursor: "pointer", fontFamily: "inherit", flexShrink: 0 }}>
-              Use
-            </button>
-          </div>
-        )}
-
-        {/* Manual payment */}
-        <div style={{ marginTop: 10 }}>
-          {!showPayment ? (
-            <button onClick={() => { setShowPayment(true); setEditing(false); }}
-              style={{ background: T.surfaceHigh, color: T.textMid, border: "1px solid #252830", borderRadius: 8, padding: "7px 14px", fontSize: 11, cursor: "pointer", fontFamily: "inherit", width: "100%" }}>
-              + Record Manual Payment
-            </button>
-          ) : (
-            <div style={{ background: T.surfaceHigh, borderRadius: 8, padding: "12px 14px" }}>
-              <div style={{ fontSize: 12, fontWeight: 600, color: T.text, marginBottom: 10 }}>Record a payment</div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
-                <Input label="Amount" type="number" value={paymentAmt}
-                  onChange={e => setPaymentAmt(e.target.value)} placeholder={fmt(periodicPayment || 0)} />
-                <Input label="Note (optional)" value={paymentNote}
-                  onChange={e => setPaymentNote(e.target.value)} placeholder="e.g. Extra lump sum" />
-              </div>
-              {parseFloat(paymentAmt) > 0 && (
-                <div style={{ fontSize: 11, color: T.textDim, marginBottom: 8 }}>
-                  New balance: {fmt(Math.max(0, balance - parseFloat(paymentAmt)), debt.currency)}
-                  {rate > 0 && term > 0 && (
-                    <span style={{ color: T.accent, marginLeft: 6 }}>
-                      &rarr; new monthly payment: {fmt(calcPMT(Math.max(0, balance - parseFloat(paymentAmt)), rate, Math.max(1, term - 1)), debt.currency)}
-                    </span>
-                  )}
-                </div>
-              )}
-              <div style={{ display: "flex", gap: 6 }}>
-                <Btn onClick={applyPayment} variant="success"><Check size={12} /> Apply</Btn>
-                <Btn onClick={() => { setShowPayment(false); setPaymentAmt(""); setPaymentNote(""); }} variant="ghost">Cancel</Btn>
-              </div>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-
-function TxRow({ tx, onCategory, onDelete, onNature, onNewCategory, overheadGroups, debts, onAllocateDebt, onCommit, committed, onSplit, onCreateRule }) {
-  const alreadyCommitted = committed?.some(c => c.name.toLowerCase().trim() === tx.description.toLowerCase().trim());
-  const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
-  const nature = tx.nature || defaultNature(tx.category);
-  const [allocating, setAllocating] = useState(false);
-  const [selectedDebt, setSelectedDebt] = useState("");
-  const [committing, setCommitting] = useState(false);
-  const [commitRec, setCommitRec] = useState("monthly");
-  const [commitAmt, setCommitAmt] = useState(tx.amount ? parseFloat(tx.amount).toFixed(2) : "");
-
-  function applyAllocation() {
-    if (!selectedDebt) return;
-    onAllocateDebt && onAllocateDebt(selectedDebt, tx.amount);
-    setAllocating(false);
-  }
-
-  return (
-    <div className="row-hover" style={{ borderBottom: "1px solid #252830", padding: "10px 14px" }}>
-      {/* Line 1: date - description - nature badge - amount */}
-      <div style={{ display: "flex", alignItems: "baseline", gap: 8, marginBottom: 6 }}>
-        <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0, width: 80 }}>{dateStr(tx.date)}</span>
-        <span style={{ fontSize: 13, color: T.text, flex: 1, minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
-          {tx.description || <span style={{ color: T.textDim, fontStyle: "italic" }}>No description</span>}
-        </span>
-        <button onClick={() => onNature && onNature(nature === "revenue" ? "capital" : nature === "capital" ? "balance_sheet" : "revenue")}
-          title="Revenue / Capital / Balance Sheet"
-          style={{ background: nature === "capital" ? T.purpleDim : nature === "balance_sheet" ? T.blueDim : T.surfaceHigh, color: nature === "capital" ? T.purple : nature === "balance_sheet" ? T.blue : T.textDim, border: `1px solid ${nature === "capital" ? T.purple+"50" : nature === "balance_sheet" ? T.blue+"50" : T.border}`, borderRadius: 5, padding: "1px 6px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, fontWeight: 600 }}>
-          {nature === "capital" ? "CAP" : nature === "balance_sheet" ? "B/S" : "REV"}
-        </button>
-        <span style={{ fontSize: 13, fontWeight: 700, color: tx.isCredit ? T.green : T.red, flexShrink: 0 }}>
-          {tx.isCredit ? "+" : "-"}{fmt(tx.amount, tx.currency || "EUR")}
-        </span>
-      </div>
-
-      {/* Line 2: category combo - badges - delete */}
-      <div style={{ display: "flex", alignItems: "center", gap: 6 }} onClick={e => e.stopPropagation()}>
-        <CategoryCombo
-          value={tx.category || ""}
-          overheadGroups={OG}
-          onNewCategory={label => { if (onNewCategory) onNewCategory(label); }}
-          onChange={cat => onCategory(cat)}
-          placeholder="Type or select category..."
-        />
-        {tx.debtAllocated && <Badge color="purple">Debt</Badge>}
-        {tx.aiSuggested && <Badge color="blue">AI</Badge>}
-        {tx.isPAYE && <Badge color="green">PAYE</Badge>}
-        {/* Debt allocation button - only on outgoing transactions when debts exist */}
-        {!tx.isCredit && debts && debts.length > 0 && !allocating && (
-          <button onClick={() => { setAllocating(true); setSelectedDebt(debts[0]?.id || ""); }}
-            title="Allocate this payment toward a debt"
-            style={{ background: tx.debtAllocated ? T.purpleDim : T.surfaceHigh, color: tx.debtAllocated ? T.purple : T.textDim, border: `1px solid ${tx.debtAllocated ? T.purple+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {tx.debtAllocated ? "Reallocate" : "- Debt"}
-          </button>
-        )}
-        {/* Commit expense button - only on outgoing transactions */}
-        {!tx.isCredit && onCommit && !committing && (
-          <button onClick={() => setCommitting(true)}
-            title="Commit as a recurring expense"
-            style={{ background: alreadyCommitted ? T.accentDim+"30" : T.surfaceHigh, color: alreadyCommitted ? T.accent : T.textDim, border: `1px solid ${alreadyCommitted ? T.accent+"50" : T.border}`, borderRadius: 5, padding: "2px 7px", fontSize: 10, cursor: "pointer", fontFamily: "inherit", flexShrink: 0, whiteSpace: "nowrap" }}>
-            {alreadyCommitted ? "- Committed" : "- Commit"}
-          </button>
-        )}
-        {!tx.isCredit && onSplit && !tx.splits && <button onClick={()=>onSplit(tx)} style={{background:"#1E2028",color:"#8B8DA0",border:"1px solid #252830",borderRadius:5,padding:"2px 7px",fontSize:10,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>Split</button>}
-        {tx.splits && <span style={{background:"rgba(74,143,212,0.09)",color:"#4A8FD4",border:"1px solid rgba(74,143,212,0.25)",borderRadius:5,padding:"2px 6px",fontSize:10,fontWeight:600}}>Split</span>}
-        {tx.category && onCreateRule && (<button onClick={()=>onCreateRule(tx)} title="Save as rule for future imports" style={{background:"rgba(240,160,60,0.1)",color:"#F0A03C",border:"1px solid rgba(240,160,60,0.3)",borderRadius:5,padding:"2px 6px",fontSize:9,cursor:"pointer",fontFamily:"inherit",flexShrink:0}}>+ Rule</button>)}
-        <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: "2px 4px", flexShrink: 0 }}><X size={12} /></button>
-      </div>
-
-      {/* Line 3: debt allocation picker (expands inline) */}
-      {allocating && debts && (
-        <div style={{ marginTop: 6, display: "flex", flexDirection: "column", gap: 4 }} onClick={e => e.stopPropagation()}>
-          {(() => {
-            const chosen = debts.find(d => d.id === selectedDebt);
-            const preSnapshot = chosen && chosen.balanceAsOf && tx.date < chosen.balanceAsOf;
-            return (
-              <>
-                {preSnapshot && (
-                  <div style={{ fontSize: 11, color: T.accent, background: T.accentDim+"30", borderRadius: 6, padding: "5px 8px" }}>
-                    This transaction ({dateStr(tx.date)}) is before the balance snapshot ({dateStr(chosen.balanceAsOf)}) - it will be tagged for record-keeping but the balance will not be reduced.
-                  </div>
-                )}
-                <div style={{ display: "flex", gap: 6, alignItems: "center", flexWrap: "wrap" }}>
-                  <select value={selectedDebt} onChange={e => setSelectedDebt(e.target.value)}
-                    style={{ ...S.input, fontSize: 11, padding: "4px 8px", flex: 1 }}>
-                    {debts.map(d => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} - balance {fmt(parseFloat(d.balance), d.currency)}{d.balanceAsOf ? " (as of " + dateStr(d.balanceAsOf) + ")" : ""}
-                      </option>
-                    ))}
-                  </select>
-                  <Btn variant={preSnapshot ? "ghost" : "success"} style={{ fontSize: 11, padding: "5px 10px", flexShrink: 0 }} onClick={applyAllocation}>
-                    <Check size={11} /> {preSnapshot ? "Tag only" : "Apply " + fmt(tx.amount, tx.currency || "EUR")}
-                  </Btn>
-                  <button onClick={() => setAllocating(false)}
-                    style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4, flexShrink: 0 }}>
-                    <X size={12} />
-                  </button>
-                </div>
-              </>
-            );
-          })()}
-        </div>
-      )}
-      {/* Commit expense inline form */}
-      {committing && (
-        <div style={{ marginTop: 6, background: T.surfaceHigh, borderRadius: 8, padding: "10px 12px" }} onClick={e => e.stopPropagation()}>
-          <div style={{ fontSize: 12, fontWeight: 600, color: T.accent, marginBottom: 8 }}>Commit as recurring expense</div>
-          <div style={{ display: "flex", gap: 6, flexWrap: "wrap", alignItems: "center" }}>
-            <div style={{ flex: 1, minWidth: 100 }}>
-              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Amount (-)</div>
-              <input type="number" step="0.01" value={commitAmt} onChange={e => setCommitAmt(e.target.value)}
-                style={{ ...S.input, fontSize: 12, padding: "5px 8px", width: "100%" }} />
-            </div>
-            <div style={{ flex: 1, minWidth: 120 }}>
-              <div style={{ fontSize: 10, color: T.textDim, marginBottom: 3 }}>Frequency</div>
-              <select value={commitRec} onChange={e => setCommitRec(e.target.value)}
-                style={{ ...S.input, fontSize: 12, padding: "5px 8px", width: "100%" }}>
-                {RECURRENCES.filter(r => r.v !== "one-time").map(r => (
-                  <option key={r.v} value={r.v}>{r.l}</option>
-                ))}
-              </select>
-            </div>
-            <div style={{ display: "flex", gap: 4, alignSelf: "flex-end", paddingBottom: 1 }}>
-              <Btn style={{ fontSize: 11, padding: "5px 10px" }} onClick={() => {
-                const rec = RECURRENCES.find(r => r.v === commitRec);
-                const monthly = (parseFloat(commitAmt) || 0) * (rec?.ppy || 0) / 12;
-                onCommit({
-                  id: Date.now().toString(),
-                  typeId: "custom",
-                  name: tx.description,
-                  group: tx.category ? ((() => { for (const [g, cats] of Object.entries(BUILTIN_OVERHEAD_GROUPS)) { if (cats.includes(tx.category)) return g; } return "Other"; })()) : "Other",
-                  category: tx.category || "",
-                  amount: parseFloat(commitAmt).toFixed(2),
-                  currency: tx.currency || "EUR",
-                  recurrence: commitRec,
-                  startDate: tx.date,
-                  isFixed: true,
-                  note: `Created from transaction on ${tx.date}`,
-                });
-                setCommitting(false);
-              }}>
-                <Check size={11} /> Add ({commitRec === "monthly" ? fmt(parseFloat(commitAmt)) + "/mo" : RECURRENCES.find(r=>r.v===commitRec)?.l})
-              </Btn>
-              <button onClick={() => setCommitting(false)}
-                style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4 }}>
-                <X size={12} />
-              </button>
-            </div>
-          </div>
-          <div style={{ fontSize: 10, color: T.textDim, marginTop: 6 }}>
-            {(() => { const rec = RECURRENCES.find(r => r.v === commitRec); const mo = (parseFloat(commitAmt)||0)*(rec?.ppy||0)/12; return mo > 0 ? `- ${fmt(mo)}/month - ${fmt((parseFloat(commitAmt)||0)*(rec?.ppy||0))}/year` : ""; })()}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// --- MANUAL TX FORM ----------------------------------------------------------
-function ManualTxForm({ onAdd, overheadGroups, onNewCategory }) {
-  const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
-  const [form, setForm] = useState({ date: today(), description: "", amount: "", currency: "EUR", isCredit: false, category: "", nature: "revenue" });
-  const set = k => e => setForm(p => ({ ...p, [k]: e.target.value }));
-  function submit() {
-    if (!form.description || !form.amount) return;
-    onAdd({ ...form, amount: parseFloat(form.amount), isCredit: form.isCredit === true || form.isCredit === "true" });
-    setForm(p => ({ ...p, description: "", amount: "", category: "", nature: "revenue" }));
-  }
-  return (
-    <div>
-      <div className="hn" style={{ fontSize: 13, fontWeight: 700, marginBottom: 10, color: T.textMid, textTransform: "uppercase", letterSpacing: "0.06em" }}>Add Transaction Manually</div>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8, marginBottom: 8 }}>
-        <Input label="Date" type="date" value={form.date} onChange={set("date")} />
-        <div style={{ gridColumn: "span 2" }}>
-          <Input label="Description" value={form.description} onChange={set("description")} placeholder="e.g. Lidl weekly shop" />
-        </div>
-        <Input label="Amount" type="number" value={form.amount} onChange={set("amount")} placeholder="0.00" />
-        <Select label="Currency" value={form.currency} onChange={set("currency")}>
-          {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-        </Select>
-        <div>
-          <label style={S.label}>Type</label>
-          <div style={{ display: "flex", gap: 5 }}>
-            {[{ v: false, l: "Expense" }, { v: true, l: "Income" }].map(({ v, l }) => (
-              <button key={l} onClick={() => setForm(p => ({ ...p, isCredit: v }))}
-                style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: `1px solid ${form.isCredit === v ? (v ? T.green : T.red) : T.border}`, background: form.isCredit === v ? (v ? T.greenDim : T.redDim) : "transparent", color: form.isCredit === v ? (v ? T.green : T.red) : T.textMid, fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: form.isCredit === v ? 700 : 400 }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div>
-          <label style={S.label}>Nature</label>
-          <div style={{ display: "flex", gap: 5 }}>
-            {[{ v: "revenue", l: "Revenue" }, { v: "capital", l: "Capital" }].map(({ v, l }) => (
-              <button key={v} onClick={() => setForm(p => ({ ...p, nature: v }))}
-                style={{ flex: 1, padding: "7px 0", borderRadius: 8, border: `1px solid ${form.nature === v ? T.accent : T.border}`, background: form.nature === v ? T.accentDim + "40" : "transparent", color: form.nature === v ? T.accent : T.textMid, fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: form.nature === v ? 700 : 400 }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-        <div style={{ gridColumn: "span 2" }}>
-          <label style={S.label}>Category</label>
-          <CategoryCombo
-            value={form.category}
-            overheadGroups={OG}
-            onNewCategory={label => {
-              if (onNewCategory) onNewCategory(label);
-            }}
-            onChange={cat => {
-              setForm(p => ({ ...p, category: cat, nature: defaultNature(cat) }));
-            }}
-            placeholder="Type or select category..."
-            style={{ fontSize: 12 }}
-          />
-        </div>
-      </div>
-      <Btn onClick={submit} style={{ marginTop: 2 }}><Plus size={12} /> Add Transaction</Btn>
-    </div>
-  );
-}
-
-// --- ADD OVERHEAD FORM --------------------------------------------------------
-function AddOverheadForm({ onAdd }) {
-  const allGroups = [...Object.keys(BUILTIN_OVERHEAD_GROUPS), "Custom"];
-  const [form, setForm] = useState({ label: "", group: "Other", nature: "revenue", newGroup: "" });
-  function submit() {
-    if (!form.label.trim()) return;
-    const group = form.group === "Custom" ? (form.newGroup.trim() || "Custom") : form.group;
-    onAdd({ label: form.label.trim(), group, nature: form.nature });
-    setForm(p => ({ ...p, label: "", newGroup: "" }));
-  }
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-      <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 8 }}>
-        <div style={{ gridColumn: "span 2" }}>
-          <Input label="Category name" value={form.label} onChange={e => setForm(p => ({ ...p, label: e.target.value }))} placeholder="e.g. ESB Smart Meter" />
-        </div>
-        <div>
-          <label style={S.label}>Group</label>
-          <select value={form.group} onChange={e => setForm(p => ({ ...p, group: e.target.value }))} style={{ ...S.input, fontSize: 11 }}>
-            {allGroups.map(g => <option key={g} value={g}>{g}</option>)}
-          </select>
-        </div>
-        {form.group === "Custom" && (
-          <Input label="New group name" value={form.newGroup} onChange={e => setForm(p => ({ ...p, newGroup: e.target.value }))} placeholder="Group name" />
-        )}
-        <div>
-          <label style={S.label}>Nature</label>
-          <div style={{ display: "flex", gap: 4 }}>
-            {[{ v: "revenue", l: "Revenue" }, { v: "capital", l: "Capital" }].map(({ v, l }) => (
-              <button key={v} onClick={() => setForm(p => ({ ...p, nature: v }))}
-                style={{ flex: 1, padding: "7px 4px", borderRadius: 8, border: `1px solid ${form.nature === v ? (v === "capital" ? T.purple : T.accent) : T.border}`, background: form.nature === v ? (v === "capital" ? T.purpleDim : T.accentDim + "40") : "transparent", color: form.nature === v ? (v === "capital" ? T.purple : T.accent) : T.textMid, fontSize: 11, cursor: "pointer", fontFamily: "inherit", fontWeight: form.nature === v ? 700 : 400 }}>
-                {l}
-              </button>
-            ))}
-          </div>
-        </div>
-      </div>
+      {/* Payment history */}
       <div>
-        <Btn onClick={submit}><Plus size={12} /> Add Category</Btn>
-      </div>
-    </div>
-  );
-}
-
-
-// --- RULE EDITOR -------------------------------------------------------------
-function RuleEditor({ rule, overheadGroups, onChange, onDelete, transactions }) {
-  const OG = overheadGroups || BUILTIN_OVERHEAD_GROUPS;
-  const [showTxns, setShowTxns] = useState(false);
-  const matchingTxns = (transactions||[]).filter(tx => rule.keywords && rule.keywords.some(k => k && (tx.description||'').toLowerCase().includes(k.toLowerCase())));
-  const [keywordsStr, setKeywordsStr] = useState((rule.keywords || []).join(", "));
-  const [category, setCategory] = useState(rule.category || "");
-  const [dirty, setDirty] = useState(rule.isNew || false);
-  const [savedMsg, setSavedMsg] = useState("");
-
-  function save() {
-    const keywords = keywordsStr.split(",").map(k => k.trim().toLowerCase()).filter(k => k.length > 0);
-    if (keywords.length === 0 || !category) return;
-    onChange({ ...rule, keywords, category, created: rule.created || today(), isNew: false });
-    setDirty(false);
-    setSavedMsg("Rule saved - applying to transactions...");
-    setTimeout(() => setSavedMsg(""), 3000);
-  }
-
-  function handleKeywordsChange(e) {
-    setKeywordsStr(e.target.value);
-    setDirty(true);
-  }
-
-  function handleCategoryChange(val) {
-    setCategory(val);
-    setDirty(true);
-  }
-
-  return (
-    <div style={{ borderRadius: 8, background: T.surfaceHigh, border: `1px solid ${dirty ? T.accent + "50" : T.border}`, overflow: "hidden" }}>
-      <div style={{ display: "flex", alignItems: "center", gap: 8, padding: "10px 12px", flexWrap: "wrap" }}>
-        {/* Keywords field */}
-        <div style={{ flex: 2, minWidth: 160 }}>
-          <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Keywords (comma-separated)</div>
-          <input
-            value={keywordsStr}
-            onChange={handleKeywordsChange}
-            onKeyDown={e => e.key === "Enter" && save()}
-            placeholder="e.g. lidl, tesco, supervalu"
-            style={{ ...S.input, fontSize: 12, padding: "5px 8px", borderColor: dirty ? T.accent + "60" : T.border }}
-          />
-        </div>
-
-        {/* Arrow */}
-        <div style={{ color: T.textDim, fontSize: 16, flexShrink: 0, paddingTop: 16 }}>&rarr;</div>
-
-        {/* Category combo */}
-        <div style={{ flex: 1, minWidth: 140 }}>
-          <div style={{ fontSize: 10, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 3 }}>Category</div>
-          <CategoryCombo
-            value={category}
-            overheadGroups={OG}
-            onChange={val => handleCategoryChange(val)}
-            placeholder="Select or type..."
-            style={{ fontSize: 12 }}
-          />
-        </div>
-
-        {/* Actions */}
-        <div style={{ display: "flex", gap: 6, alignItems: "center", flexShrink: 0, paddingTop: dirty ? 0 : 16 }}>
-          {dirty && (
-            <Btn onClick={save} style={{ fontSize: 11, padding: "5px 12px" }}>
-              <Check size={11} /> Save
-            </Btn>
-          )}
-          <button onClick={onDelete} style={{ background: "none", border: "none", color: T.textDim, cursor: "pointer", padding: 4 }}>
-            <Trash2 size={13} />
-          </button>
-        </div>
-      </div>
-
-      {/* Footer: saved message or keyword pills */}
-      {savedMsg ? (
-        <div style={{ padding: "4px 12px 8px", fontSize: 11, color: T.green }}>{savedMsg}</div>
-      ) : (!dirty && rule.keywords && rule.keywords.filter(k => k).length > 0 && (
-        <div style={{ padding: "4px 12px 8px", fontSize: 11, color: T.textDim }}>
-          Created {rule.created} &middot; {rule.keywords.filter(k => k).map(k => (
-            <span key={k} style={{ background: T.bg, border: "1px solid #252830", borderRadius: 4, padding: "1px 6px", marginRight: 4, color: T.textMid }}>{k}</span>
-          ))}
-        </div>
-      ))}
-      {matchingTxns.length > 0 && (
-        <div style={{borderTop:'1px solid #252830',padding:'4px 12px 8px'}}>
-          <button onClick={()=>setShowTxns(s=>!s)} style={{background:'none',border:'none',color:T.accent,fontSize:11,cursor:'pointer',fontFamily:'inherit',padding:'4px 0'}}>
-            {showTxns ? String.fromCharCode(9662) : String.fromCharCode(9656)} {matchingTxns.length} matching transaction{matchingTxns.length!==1?'s':''}
-          </button>
-          {showTxns && (
-            <div style={{display:'flex',flexDirection:'column',gap:3,marginTop:6,maxHeight:200,overflowY:'auto'}}>
-              {matchingTxns.map(tx=>(
-                <div key={tx.id} style={{display:'flex',alignItems:'center',gap:8,padding:'5px 8px',borderRadius:6,background:T.bg,border:'1px solid #252830'}}>
-                  <div style={{flex:1,minWidth:0}}><div style={{fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}}>{tx.description}</div><div style={{fontSize:10,color:T.textDim}}>{tx.date} - <span style={{color:tx.category?T.green:T.textDim}}>{tx.category||'Uncategorised'}</span></div></div>
-                  <span style={{fontSize:11,fontWeight:700,color:tx.isCredit?T.green:T.red,flexShrink:0}}>{tx.isCredit?'+':'-'}{parseFloat(tx.amount||0).toFixed(2)}</span>
+        <button onClick={()=>setShowHistory(h=>!h)} style={{width:'100%',padding:'10px 20px',background:'none',border:'none',cursor:'pointer',display:'flex',justifyContent:'space-between',alignItems:'center',fontFamily:'inherit'}}>
+          <span style={{fontSize:11,fontWeight:600,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.08em'}}>Payment History ({allPayments.length})</span>
+          <span style={{fontSize:10,color:T.textDim}}>{showHistory?'▾':'▸'}</span>
+        </button>
+        {showHistory&&(
+          <div style={{borderTop:'1px solid #252830'}}>
+            {paymentsWithBalance.length===0&&(
+              <div style={{padding:'16px 20px',fontSize:12,color:T.textDim}}>No payments found. Categorise transactions as Loan Repayment or BNPL Payment and they will appear here automatically.</div>
+            )}
+            {paymentsWithBalance.length>0&&(
+              <div style={{overflowX:'auto'}}>
+                <div style={{display:'grid',gridTemplateColumns:'80px 1fr 70px 70px 80px',gap:0,borderBottom:'1px solid #252830',padding:'6px 20px',fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>
+                  <span>Date</span><span>Description</span><span style={{textAlign:'right'}}>Amount</span>{rate>0&&<span style={{textAlign:'right'}}>Principal</span>}<span style={{textAlign:'right'}}>Balance</span>
                 </div>
-              ))}
-              {rule.category && matchingTxns.some(t=>!t.category) && (
-                <button onClick={()=>onChange&&onChange({...rule,_applyNow:true})} style={{marginTop:4,padding:'5px 10px',borderRadius:6,border:'none',background:T.accent,color:'#0E0E10',fontSize:11,fontWeight:700,cursor:'pointer',fontFamily:'inherit'}}>
-                  Apply rule to uncategorised
-                </button>
-              )}
-            </div>
-          )}
-        </div>
-      )}
+                {paymentsWithBalance.map(p=>(
+                  <div key={p.id} style={{display:'grid',gridTemplateColumns:'80px 1fr 70px 70px 80px',gap:0,padding:'8px 20px',borderBottom:'1px solid #1a1c24',alignItems:'center'}}>
+                    <span style={{fontSize:11,color:T.textDim}}>{p.date?new Date(p.date+'T12:00:00').toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'2-digit'}):''}</span>
+                    <span style={{fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingRight:8}}>{p.description||'Manual payment'}</span>
+                    <span style={{fontSize:11,fontWeight:600,color:T.red,textAlign:'right'}}>{fmt(p.amount,debt.currency)}</span>
+                    {rate>0&&<span style={{fontSize:10,color:T.textMid,textAlign:'right'}}>{fmt(p.principal,debt.currency)}</span>}
+                    <span style={{fontSize:11,color:T.textMid,textAlign:'right'}}>{fmt(p.balanceAfter,debt.currency)}</span>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
     </div>
   );
 }
 
-
-// --- LOAN PROMPT MODAL (with BNPL + inline debt creation) --------------------
 function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) {
   const { tx, type, count } = prompt;
   const isBNPL = tx.category === "BNPL Payment";
