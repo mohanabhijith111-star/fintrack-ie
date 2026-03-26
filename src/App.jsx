@@ -3150,7 +3150,7 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
         </div>
 
         {/* Repayment mode toggle */}
-        {!isBNPL && type === "repayment" && (
+        {(type === "repayment" || isBNPL) && debts.length > 0 && (
           <div style={{ display: "flex", gap: 6, marginBottom: 16 }}>
             {["link", "create"].map(m => (
               <button key={m} onClick={() => setMode(m)} style={{ flex: 1, padding: "7px 10px", borderRadius: 7, border: `1px solid ${mode === m ? T.accent : T.border}`, background: mode === m ? T.accent + "20" : "transparent", color: mode === m ? T.accent : T.textMid, fontSize: 12, cursor: "pointer", fontFamily: "inherit" }}>
@@ -3161,7 +3161,7 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
         )}
 
         {/* BNPL fields */}
-        {isBNPL && (
+        {isBNPL && mode === "create" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             <div><label style={S.label}>Purchase / Debt name</label>
               <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
@@ -3193,7 +3193,7 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
         )}
 
         {/* Repayment - link to existing */}
-        {!isBNPL && type === "repayment" && mode === "link" && (
+        {(type === "repayment" || isBNPL) && mode === "link" && (
           <div style={{ marginBottom: 16 }}>
             {debts.length > 0 ? (
               <>
@@ -3212,7 +3212,7 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
         )}
 
         {/* Repayment - create new debt */}
-        {!isBNPL && type === "repayment" && mode === "create" && (
+        {mode === "create" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 10, marginBottom: 16 }}>
             <div><label style={S.label}>Debt name</label>
               <input value={newDebtName} onChange={e => setNewDebtName(e.target.value)} style={{ ...S.input }} /></div>
@@ -3241,7 +3241,7 @@ function LoanPromptModal({ prompt, debts, onAddDebt, onReduceDebt, onDismiss }) 
               <Plus size={13} /> Add to Debt Tracker
             </Btn>
           )}
-          {!isBNPL && type === "repayment" && mode === "link" && selectedDebt && (
+          {(type === "repayment" || isBNPL) && mode === "link" && selectedDebt && (
             <Btn variant="success" onClick={() => onReduceDebt(selectedDebt, parseFloat(parseFloat(tx.amount).toFixed(2)))}>
               <Check size={13} /> Apply Repayment
             </Btn>
