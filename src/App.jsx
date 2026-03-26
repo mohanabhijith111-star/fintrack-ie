@@ -2498,7 +2498,7 @@ function DebtCard({ debt, onChange, onDelete, transactions }) {
   // Collect payments from transactions by description match + manual history
   const kw = (debt.name||'').toLowerCase().split(' ').filter(w=>w.length>3).slice(0,2);
   const txPayments = (transactions||[]).filter(t=>
-    !t.isCredit && kw.length>0 && kw.some(w=>(t.description||'').toLowerCase().includes(w))
+    !t.isCredit && kw.length>0 && kw.some(w=>(t.description||'').toLowerCase().includes(w)) && ('Loan Repayment','BNPL Payment','Credit Card Payment','Credit Card Min Payment','Mortgage Payment').includes(t.category||'')
   ).map(t=>({id:t.id,date:t.date,description:t.description,amount:parseFloat(t.amount)||0,source:'tx'}));
   const manualPayments = (debt.paymentHistory||[]).map(p=>({...p,source:'manual'}));
   const allPayments = [...txPayments,...manualPayments]
