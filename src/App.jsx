@@ -829,6 +829,23 @@ export default function App() {
   // Core data - persisted to localStorage
   const [transactions, setTransactions] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_transactions") || "[]"); } catch { return []; } });
   const [committed, setCommitted] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_committed") || "[]"); } catch { return []; } });
+  const isOverdue = (dueDateStr) => {
+    if (!dueDateStr) return false;
+    const due = new Date(dueDateStr + 'T12:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    return due < today;
+  };
+
+  const isDueSoon = (dueDateStr, daysWindow = 7) => {
+    if (!dueDateStr) return false;
+    const due = new Date(dueDateStr + 'T12:00:00');
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const windowEnd = new Date(today.getTime() + daysWindow * 86400000);
+    return due >= today && due <= windowEnd;
+  };
+
   const [debts, setDebts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_debts") || "[]"); } catch { return []; } });
   const [assets, setAssets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_assets") || "[]"); } catch { return []; } });
   const [rules, setRules] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_rules") || "[]"); } catch { return []; } });
