@@ -13,6 +13,16 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
   // Debt frequency mapping
   const DEBT_FREQ = { monthly: 12, fortnightly: 26, weekly: 52 };
 
+  const roundCurrency = (value) => {
+    if (!isFinite(value) || isNaN(value)) return 0;
+    return Math.round((value + Number.EPSILON) * 100) / 100;
+  };
+
+  /**
+   * Round a number to 2 decimal places using half-up rounding.
+   * Use for every monetary value stored or displayed.
+   */
+
   /**
    * Calculate monthly payment (PMT) for a loan
    * Standard amortization formula
@@ -37,10 +47,10 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
     const r = (parseFloat(annualRatePct) || 0) / 100 / freq;
     
     if (P <= 0 || termPeriods <= 0) return 0;
-    if (r === 0) return P / termPeriods;
+    if (r === 0) return roundCurrency(P / termPeriods);
     
     // PMT = P * r / (1 - (1 + r)^-n)
-    return (P * r) / (1 - Math.pow(1 + r, -termPeriods));
+    return roundCurrency((P * r) / (1 - Math.pow(1 + r, -termPeriods)));
   };
 
   /**
@@ -107,9 +117,9 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
     let paymentDate = new Date(debt.dueDate || new Date());
     
     for (let i = 0; i < paymentCount && remainingBalance > 0; i++) {
-      const interestPayment = remainingBalance * periodicRate;
-      const principalPayment = Math.min(remainingBalance, monthlyPayment - interestPayment);
-      remainingBalance = Math.max(0, remainingBalance - principalPayment);
+      const interestPayment = roundCurrency(remainingBalance * periodicRate);
+      const principalPayment = roundCurrency(Math.min(remainingBalance, monthlyPayment - interestPayment));
+      remainingBalance = roundCurrency(Math.max(0, remainingBalance - principalPayment));
       
       // Calculate next payment date
       if (frequency === 'weekly') {
@@ -200,9 +210,9 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
     // Calculate interest and principal for each payment
     let bal = original;
     return allPayments.map(p => {
-      const interest = bal * periodicRate;
-      const principal = Math.min(bal, Math.max(0, p.amount - interest));
-      bal = Math.max(0, bal - principal);
+      const interest = roundCurrency(bal * periodicRate);
+      const principal = roundCurrency(Math.min(bal, Math.max(0, p.amount - interest)));
+      bal = roundCurrency(Math.max(0, bal - principal));
       
       return {
         ...p,
@@ -231,8 +241,8 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
    * @returns {Object} - { totalBalance, totalAssets, netPosition }
    */
   const totals = useMemo(() => {
-    const totalBalance = debts.reduce((s, d) => s + (parseFloat(d.balance) || 0), 0);
-    const totalAssets = assets.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0);
+    const totalBalance = roundCurrency(debts.reduce((s, d) => s + (parseFloat(d.balance) || 0), 0));
+    const totalAssets = roundCurrency(assets.reduce((s, a) => s + (parseFloat(a.balance) || 0), 0));
     
     return {
       totalBalance,
@@ -275,7 +285,7 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
         : null,
       progressPercent: original > 0 ? Math.min(100, ((original - balance) / original) * 100) : 0,
       interestAccrued: original - balance,
-      totalInterestRemaining: payoffMonths ? (monthlyPayment * payoffMonths - balance) : 0,
+      totalInterestRemaining: payoffMonths ? roundCurrency(monthlyPayment * payoffMonths - balance) : 0,
     };
   };
 
