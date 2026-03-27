@@ -1,6 +1,8 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 import { DebtForm } from "./components/DebtForm";
+import { AssetsList } from "./components/AssetsList";
+import { LiabilitiesList } from "./components/LiabilitiesList";
 
 // --- DESIGN TOKENS -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
@@ -1928,15 +1930,14 @@ export default function App() {
             </div>
 
             {assets.length > 0 && (
-              <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
+              <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
                 <div style={{ fontSize: 12, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Assets</div>
-                {assets.map(a => (
-                  <AssetCard key={a.id} asset={a}
-                    linkedDebts={debts.filter(d => d.linkedAssetId === a.id)}
-                    onChange={updated => setAssets(prev => prev.map(x => x.id === a.id ? updated : x))}
-                    onDelete={() => setAssets(prev => prev.filter(x => x.id !== a.id))}
-                  />
-                ))}
+                <AssetsList
+                  assets={assets}
+                  debts={debts}
+                  onChange={updated => setAssets(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                  onDelete={id => setAssets(prev => prev.filter(x => x.id !== id))}
+                />
               </div>
             )}
 
@@ -1949,19 +1950,14 @@ export default function App() {
               <DebtForm assets={assets} onSubmit={addDebt} />
             </div>
 
-            <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
+            <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {debts.length > 0 && <div style={{ fontSize: 12, color: T.textDim, textTransform: "uppercase", letterSpacing: "0.08em" }}>Liabilities</div>}
-              {[...debts].sort((a, b) => (parseFloat(b.rate) || 0) - (parseFloat(a.rate) || 0)).map((d, i) => (
-                <DebtCard key={d.id}
-                  debt={d}
-                  isFirst={i === 0}
-                  timeline60={timeline60}
-                  linkedAsset={assets.find(a => a.id === d.linkedAssetId) || null}
-                  transactions={transactions}
-                  onChange={updated => setDebts(prev => prev.map(x => x.id === d.id ? updated : x))}
-                  onDelete={() => setDebts(prev => prev.filter(x => x.id !== d.id))}
-                />
-              ))}
+              <LiabilitiesList
+                debts={debts}
+                assets={assets}
+                onChange={updated => setDebts(prev => prev.map(x => x.id === updated.id ? updated : x))}
+                onDelete={id => setDebts(prev => prev.filter(x => x.id !== id))}
+              />
               {debts.length === 0 && assets.length === 0 && (
                 <div style={{ ...S.card, padding: 40, textAlign: "center", color: T.textDim, fontSize: 13 }}>
                   No assets or liabilities tracked yet. Add your Credit Union shares as an asset and your share loan as a liability above.
