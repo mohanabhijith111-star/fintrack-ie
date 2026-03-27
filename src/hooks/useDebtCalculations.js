@@ -36,20 +36,16 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
   const calcPMT = (balance, annualRatePct, termMonths, frequency = 'monthly') => {
     const P = parseFloat(balance) || 0;
     const freq = DEBT_FREQ[frequency] || 12;
-    
-    // Convert term to periods based on frequency
-    const termPeriods = frequency === 'fortnightly' 
+    const termPeriods = frequency === 'fortnightly'
       ? Math.round((parseInt(termMonths) || 0) * 26 / 12)
-      : frequency === 'weekly' 
+      : frequency === 'weekly'
       ? Math.round((parseInt(termMonths) || 0) * 52 / 12)
       : parseInt(termMonths) || 0;
-    
+    if (P < 0) return 0;
+    if (P === 0) return 0;
+    if (termPeriods <= 0) return 0;
     const r = (parseFloat(annualRatePct) || 0) / 100 / freq;
-    
-    if (P <= 0 || termPeriods <= 0) return 0;
     if (r === 0) return roundCurrency(P / termPeriods);
-    
-    // PMT = P * r / (1 - (1 + r)^-n)
     return roundCurrency((P * r) / (1 - Math.pow(1 + r, -termPeriods)));
   };
 
@@ -68,12 +64,11 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
     const freq = DEBT_FREQ[frequency] || 12;
     const r = (parseFloat(annualRatePct) || 0) / 100 / freq;
     const pmt = parseFloat(periodicPayment) || 0;
-    
-    if (P <= 0 || pmt <= 0) return null;
+    if (P < 0) return 0;
+    if (P === 0) return 0;
+    if (pmt <= 0) return 0;
     if (r === 0) return Math.ceil((P / pmt) * (12 / freq));
-    if (pmt <= P * r) return null; // Payment too low to cover interest
-    
-    // n = -log(1 - Pr/pmt) / log(1 + r)
+    if (pmt <= P * r) return Infinity;
     const periods = Math.ceil(-Math.log(1 - (P * r) / pmt) / Math.log(1 + r));
     return Math.ceil(periods * 12 / freq);
   };
@@ -285,7 +280,7 @@ export function useDebtCalculations(debts = [], assets = [], transactions = []) 
         : null,
       progressPercent: original > 0 ? Math.min(100, ((original - balance) / original) * 100) : 0,
       interestAccrued: original - balance,
-      totalInterestRemaining: payoffMonths ? roundCurrency(monthlyPayment * payoffMonths - balance) : 0,
+      totalInterestRemaining: (payoffMonths && payoffMonths !== Infinity) ? roundCurrency(monthlyPayment * payoffMonths - balance) : 0,
     };
   };
 
