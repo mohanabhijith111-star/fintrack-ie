@@ -1,5 +1,6 @@
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
+import { DebtForm } from "./components/DebtForm";
 
 // --- DESIGN TOKENS -----------------------------------------------------------
 // Palette: warm slate / ivory / amber accent - refined & editorial
@@ -870,8 +871,6 @@ export default function App() {
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", category: "", amount: "", currency: "EUR", startDate: today(), endDate: "", recurrence: "monthly", isFixed: true, isVariable: false, estimatedAvg: "", contractMonths: "", upfrontAmount: "", note: "" });
   const [showProjectId, setShowProjectId] = useState(null);
 
-  // Debt form
-  const [debtForm, setDebtForm] = useState({ name: "", total: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", minPayment: "", termMonths: "", dueDate: "", type: "loan", linkedAssetId: "" });
   const [assetForm, setAssetForm] = useState({ name: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", type: "savings", note: "" });
 
   // Transaction filters
@@ -1186,27 +1185,25 @@ export default function App() {
     setCommitForm(p => ({ ...p, name: "", amount: "", note: "" }));
   }
 
-  function addDebt() {
-    if (!debtForm.name || !debtForm.balance) return;
+  function addDebt(formData) {
     setDebts(prev => [...prev, {
       id: Date.now().toString(),
-      name: debtForm.name,
-      total: debtForm.total || debtForm.balance,
-      balance: debtForm.balance,
-      balanceAsOf: debtForm.balanceAsOf || today(),
-      currency: debtForm.currency,
-      rate: debtForm.rate,
-      termMonths: debtForm.termMonths || (debtForm.knownPayment && debtForm.rate
-        ? (calcTermFromPayment(parseFloat(debtForm.balance), parseFloat(debtForm.rate), parseFloat(debtForm.knownPayment), debtForm.paymentFrequency || "monthly") || "").toString()
+      name: formData.name,
+      total: formData.total || formData.balance,
+      balance: formData.balance,
+      balanceAsOf: formData.balanceAsOf || today(),
+      currency: formData.currency,
+      rate: formData.rate,
+      termMonths: formData.termMonths || (formData.knownPayment && formData.rate
+        ? (calcTermFromPayment(parseFloat(formData.balance), parseFloat(formData.rate), parseFloat(formData.knownPayment), formData.paymentFrequency || "monthly") || "").toString()
         : ""),
-      paymentFrequency: debtForm.paymentFrequency || "monthly",
-      knownPayment: debtForm.knownPayment || "",
-      dueDate: debtForm.dueDate,
-      type: debtForm.type || "loan",
-      linkedAssetId: debtForm.linkedAssetId || null,
+      paymentFrequency: formData.paymentFrequency || "monthly",
+      knownPayment: formData.knownPayment || "",
+      dueDate: formData.dueDate,
+      type: "loan",
+      linkedAssetId: formData.linkedAssetId || null,
       paymentHistory: [],
     }]);
-    setDebtForm({ name: "", total: "", balance: "", balanceAsOf: today(), currency: "EUR", rate: "", termMonths: "", dueDate: "", type: "loan", linkedAssetId: "" });
   }
 
   function addAsset() {
@@ -1949,50 +1946,7 @@ export default function App() {
               <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>
                 Sorted by Avalanche method. Monthly repayment auto-calculated. You can link a loan to a share account (e.g. CU share-secured loan).
               </div>
-              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(90px, 1fr))", gap: 10, marginBottom: 12 }}>
-                <div style={{ gridColumn: "span 2" }}>
-                  <Input label="Loan name" value={debtForm.name} onChange={e => setDebtForm(p => ({ ...p, name: e.target.value }))} placeholder="e.g. CU Share Loan" />
-                </div>
-                <Input label="Original loan amount" type="number" value={debtForm.total} onChange={e => setDebtForm(p => ({ ...p, total: e.target.value }))} placeholder="0.00" />
-                <div>
-                  <label style={S.label}>Current balance</label>
-                  <input type="number" value={debtForm.balance} onChange={e => setDebtForm(p => ({ ...p, balance: e.target.value }))}
-                    placeholder="0.00" style={{ ...S.input, marginBottom: 4 }} />
-                  <div style={{ display: "flex", alignItems: "center", gap: 6 }}>
-                    <span style={{ fontSize: 10, color: T.textDim, flexShrink: 0 }}>as of</span>
-                    <input type="date" value={debtForm.balanceAsOf} onChange={e => setDebtForm(p => ({ ...p, balanceAsOf: e.target.value }))}
-                      style={{ ...S.input, fontSize: 11, padding: "5px 8px" }} />
-                  </div>
-                  <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>Set a past date for existing loans</div>
-                </div>
-                <Select label="Currency" value={debtForm.currency} onChange={e => setDebtForm(p => ({ ...p, currency: e.target.value }))}>
-                  {CURRENCIES.map(c => <option key={c}>{c}</option>)}
-                </Select>
-                <Select label="Payment frequency" value={debtForm.paymentFrequency || "monthly"} onChange={e => setDebtForm(p => ({ ...p, paymentFrequency: e.target.value }))}>
-                  <option value="monthly">Monthly</option>
-                  <option value="fortnightly">Fortnightly</option>
-                  <option value="weekly">Weekly</option>
-                </Select>
-                <Input label="Interest rate % p.a." type="number" value={debtForm.rate} onChange={e => setDebtForm(p => ({ ...p, rate: e.target.value }))} placeholder="e.g. 8.5" />
-                <div>
-                  <label style={S.label}>Known {debtForm.paymentFrequency || "monthly"} payment (optional)</label>
-                  <input type="number" value={debtForm.knownPayment || ""} onChange={e => setDebtForm(p => ({ ...p, knownPayment: e.target.value }))}
-                    placeholder="e.g. 250.00" style={{ ...S.input }} />
-                  <div style={{ fontSize: 10, color: T.textDim, marginTop: 2 }}>Term will be auto-calculated from this + rate</div>
-                </div>
-                <Input label="Term (months - or leave blank)" type="number" value={debtForm.termMonths} onChange={e => setDebtForm(p => ({ ...p, termMonths: e.target.value }))} placeholder="e.g. 60" />
-                <Input label="Next due date" type="date" value={debtForm.dueDate} onChange={e => setDebtForm(p => ({ ...p, dueDate: e.target.value }))} />
-                {assets.length > 0 && (
-                  <div>
-                    <label style={S.label}>Linked asset (optional)</label>
-                    <select value={debtForm.linkedAssetId} onChange={e => setDebtForm(p => ({ ...p, linkedAssetId: e.target.value }))} style={{ ...S.input, fontSize: 12 }}>
-                      <option value="">- none -</option>
-                      {assets.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
-                    </select>
-                  </div>
-                )}
-              </div>
-              <Btn onClick={addDebt}><Plus size={13} /> Add Loan</Btn>
+              <DebtForm assets={assets} onSubmit={addDebt} />
             </div>
 
             <div style={{ display: "flex", flexDirection: "column", gap: 12 }}>
