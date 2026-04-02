@@ -36,6 +36,8 @@ export function DebtForm({ assets = [], onSubmit, initialData = null }) {
   const isEditing = !!initialData;
   const [form, setForm] = useState(initialData || { name: "", total: "", balance: "", balanceAsOf: new Date().toISOString().split("T")[0], currency: "EUR", rate: "", knownPayment: "", termMonths: "", dueDate: "", linkedAssetId: "" });
   const [errors, setErrors] = useState({});
+  const [touched, setTouched] = useState(false);
+  const isFormValid = form.name.trim() && parseFloat(form.total) > 0 && parseFloat(form.balance) >= 0 && (parseFloat(form.termMonths) > 0 || parseFloat(form.knownPayment) > 0);
 
   const validateForm = () => {
     const newErrors = {};
@@ -82,7 +84,7 @@ export function DebtForm({ assets = [], onSubmit, initialData = null }) {
         )}
       </div>
       {errors.term && <div style={{ padding: 6, backgroundColor: "rgba(224, 92, 92, 0.1)", borderRadius: 4, color: T.red, fontSize: 11, marginBottom: 8 }}>⚠️ {errors.term}</div>}  
-      <button onClick={() => validateForm() && onSubmit(form)} style={{ width: "100%", padding: "8px", fontSize: 12, fontWeight: 600, backgroundColor: T.accent, color: T.bg, border: "none", borderRadius: 4, cursor: "pointer" }}>
+      <button onClick={() => { setTouched(true); validateForm() onClick={() => validateForm() && onSubmit(form)} style={{ width: "100%", padding: "8px", fontSize: 12, fontWeight: 600, backgroundColor: T.accent, color: T.bg, border: "none", borderRadius: 4, cursor: "pointer" }}onClick={() => validateForm() && onSubmit(form)} style={{ width: "100%", padding: "8px", fontSize: 12, fontWeight: 600, backgroundColor: T.accent, color: T.bg, border: "none", borderRadius: 4, cursor: "pointer" }} onSubmit(form); }}>
         {isEditing ? "✓ Update" : "➕ Add Loan"}
       </button>
     </div>
