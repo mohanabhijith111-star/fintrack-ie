@@ -112,7 +112,35 @@ function DebtRow({ debt, linkedAsset, onChange, onDelete }) {
   const labelStyle = { fontSize: 10, fontWeight: 600, color: T.textMid, marginBottom: 3, display: "block", textTransform: "uppercase", letterSpacing: "0.06em" };
 
   function save() {
-    onChange({ ...debt, ...form });
+    // ── Validation ──────────────────────────────────────────────────────
+    const bal = parseFloat(form.balance);
+    const tot = parseFloat(form.total);
+    const rat = parseFloat(form.rate);
+    if (!form.name.trim())                     { alert("Debt name is required.");                     return; }
+    if (isNaN(bal) || bal < 0)                 { alert("Balance cannot be negative.");                return; }
+    if (bal === 0)                             { alert("Balance must be greater than €.");         return; }
+    if (!isNaN(tot) && tot > 0 && bal > tot)   { alert("Balance cannot exceed original amount.");     return; }
+    if (!isNaN(rat) && (rat < 0 || rat > 100)) { alert("Interest rate must be between 0-100%.");      return; }
+
+    // ── Recalculate payment / term when key fields change ───────────────
+    const updatedForm = { ...form };
+    const balanceChanged = parseFloat(form.balance) !== parseFloat(debt.balance);
+    const rateChanged    = parseFloat(form.rate)    !== parseFloat(debt.rate);
+    const termChanged    = parseInt(form.termMonths) !== parseInt(debt.termMonths);
+    const hasManualPmt   = form.knownPayment !== "" && parseFloat(form.knownPayment) > 0;
+
+    if (!hasManualPmt) {
+      if (balanceChanged || rateChanged || termChanged) {
+        const newPmt = calcPMT(
+          parseFloat(updatedForm.balance) || 0,
+          parseFloat(updatedForm.rate)    || 0,
+          parseInt(updatedForm.termMonths) || 0
+        );
+        if (newPmt > 0) updatedForm.knownPayment = newPmt.toFixed(2);
+      }
+    }
+
+    onChange({ ...debt, ...updatedForm });
     setEditing(false);
   }
 
