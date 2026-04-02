@@ -1,3 +1,5 @@
+import { validateTransaction, validateDebt, validateCommitted } from "./utils/validation";
+import { safeSetItem, useStorageMonitor } from "./utils/storage";
 import { useState, useMemo, useRef, useCallback, useEffect } from "react";
 import { TrendingUp, TrendingDown, AlertCircle, Target, Calendar, DollarSign, Plus, Trash2, ChevronRight, CreditCard, BarChart2, Clock, RefreshCw, Upload, Check, X, ChevronDown, ChevronUp, Search, Settings, Layers } from "lucide-react";
 import { DebtForm } from "./components/DebtForm";
@@ -846,6 +848,9 @@ export default function App() {
     return due >= today && due <= windowEnd;
   };
 
+  // Storage monitoring
+  const storageUsage = useStorageMonitor();
+
   const [debts, setDebts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_debts") || "[]"); } catch { return []; } });
   const [assets, setAssets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_assets") || "[]"); } catch { return []; } });
   const [rules, setRules] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_rules") || "[]"); } catch { return []; } });
@@ -860,14 +865,14 @@ export default function App() {
   const OVERHEAD_GROUPS = useMemo(() => buildOverheadGroups(customOverheads), [customOverheads]);
   const ALL_CATEGORIES = useMemo(() => Object.entries(OVERHEAD_GROUPS).flatMap(([g, cs]) => cs.map(c => ({ group: g, label: c }))), [OVERHEAD_GROUPS]);
   // -- Persist to localStorage on every change ---------------------------------
-  useEffect(() => { try { localStorage.setItem("ft_transactions", JSON.stringify(transactions)); } catch {} }, [transactions]);
+  useEffect(() => { try { safeSetItem("ft_transactions", JSON.stringify(transactions)); } catch {} }, [transactions]);
   // Trigger Drive auto-save whenever key data changes
   useEffect(() => { if (typeof window._driveAutoSave === 'function') window._driveAutoSave(); }, [transactions, committed, debts, rules, customOverheads]);
-  useEffect(() => { try { localStorage.setItem("ft_committed", JSON.stringify(committed)); } catch {} }, [committed]);
-  useEffect(() => { try { localStorage.setItem("ft_debts", JSON.stringify(debts)); } catch {} }, [debts]);
-  useEffect(() => { try { localStorage.setItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
-  useEffect(() => { try { localStorage.setItem("ft_rules", JSON.stringify(rules)); } catch {} }, [rules]);
-  useEffect(() => { try { localStorage.setItem("ft_customOverheads", JSON.stringify(customOverheads)); } catch {} }, [customOverheads]);
+  useEffect(() => { try { safeSetItem("ft_committed", JSON.stringify(committed)); } catch {} }, [committed]);
+  useEffect(() => { try { safeSetItem("ft_debts", JSON.stringify(debts)); } catch {} }, [debts]);
+  useEffect(() => { try { safeSetItem("ft_assets", JSON.stringify(assets)); } catch {} }, [assets]);
+  useEffect(() => { try { safeSetItem("ft_rules", JSON.stringify(rules)); } catch {} }, [rules]);
+  useEffect(() => { try { safeSetItem("ft_customOverheads", JSON.stringify(customOverheads)); } catch {} }, [customOverheads]);
   const [importQueue, setImportQueue] = useState([]); // transactions waiting to be confirmed
   const [importing, setImporting] = useState(false);
   const [importMsg, setImportMsg] = useState("");
@@ -882,9 +887,9 @@ export default function App() {
   });
   const [paydaysAdded, setPaydaysAdded] = useState(false);
 
-  useEffect(() => { try { localStorage.setItem("ft_salary", salary); } catch {} }, [salary]);
-  useEffect(() => { try { localStorage.setItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
-  useEffect(() => { try { localStorage.setItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
+  useEffect(() => { try { safeSetItem("ft_salary", salary); } catch {} }, [salary]);
+  useEffect(() => { try { safeSetItem("ft_firstPayday", firstPayday); } catch {} }, [firstPayday]);
+  useEffect(() => { try { safeSetItem("ft_taxProfile", JSON.stringify(taxProfile)); } catch {} }, [taxProfile]);
 
   // Committed form
   const [commitForm, setCommitForm] = useState({ typeId: "rent", name: "", category: "", amount: "", currency: "EUR", startDate: today(), endDate: "", recurrence: "monthly", isFixed: true, isVariable: false, estimatedAvg: "", contractMonths: "", upfrontAmount: "", note: "" });
@@ -1018,6 +1023,11 @@ export default function App() {
   // -- Actions ------------------------------------------------------------------
 
   function addManualTx(tx) {
+    const errs = validateTransaction(tx);
+    if (Object.keys(errs).length > 0) {
+      alert("Please fix:\n" + Object.values(errs).join("\n"));
+      return;
+    }
     const newTx = {
       id: Date.now().toString(),
       nature: tx.nature || defaultNature(tx.category),
@@ -1085,7 +1095,12 @@ export default function App() {
 
   // Build a dedup key from date + description (normalised)
   function dedupKey(tx) {
-    return (tx.date || "") + "|" + (tx.description || "").toLowerCase().trim();
+    return [
+      (tx.date || "").trim(),
+      (tx.description || "").toLowerCase().trim(),
+      (parseFloat(tx.amount) || 0).toFixed(2),
+      tx.isCredit ? "credit" : "debit",
+    ].join("|");
   }
 
   async function handleFileUpload(file) {
@@ -1117,6 +1132,16 @@ export default function App() {
       // Deduplicate against already-recorded transactions by date + description
       const existingKeys = new Set(transactions.map(dedupKey));
       const fresh = parsed.filter(tx => !existingKeys.has(dedupKey(tx)));
+      const dupeRatio = parsed.length > 0 ? (parsed.length - fresh.length) / parsed.length : 0;
+      if (dupeRatio > 0.5) {
+        const dupeN = parsed.length - fresh.length;
+        const ok = window.confirm(
+          `⚠️ ${dupeN} of ${parsed.length} transactions already exist.\n\n` +
+          `This looks like the same file imported before.\n` +
+          `Continue and import only the ${fresh.length} new ones?`
+        );
+        if (!ok) { setImporting(false); return; }
+      }
       const dupeCount = parsed.length - fresh.length;
 
       if (fresh.length === 0) {
@@ -1181,6 +1206,11 @@ export default function App() {
   }
 
   function addCommitted() {
+    const errs = validateCommitted(commitForm);
+    if (Object.keys(errs).length > 0) {
+      alert("Please fix:\n" + Object.values(errs).join("\n"));
+      return;
+    }
     if (!commitForm.amount) return;
     const typeInfo = COMMITTED_TYPES.find(t => t.id === commitForm.typeId);
     setCommitted(prev => [...prev, {
@@ -1205,6 +1235,11 @@ export default function App() {
   }
 
   function addDebt(formData) {
+    const errs = validateDebt(formData);
+    if (Object.keys(errs).length > 0) {
+      alert("Please fix:\n" + Object.values(errs).join("\n"));
+      return;
+    }
     setDebts(prev => [...prev, {
       id: Date.now().toString(),
       name: formData.name,
@@ -2736,7 +2771,7 @@ const LS_KEYS = ['ft_transactions','ft_committed','ft_debts','ft_assets','ft_rul
 function loadGoogleIdentity() { return new Promise((resolve, reject) => { if (window.google?.accounts?.oauth2) { resolve(); return; } const s = document.createElement('script'); s.src = 'https://accounts.google.com/gsi/client'; s.onload = resolve; s.onerror = reject; document.head.appendChild(s); }); }
 async function getAccessToken() { await loadGoogleIdentity(); return new Promise((resolve, reject) => { const client = window.google.accounts.oauth2.initTokenClient({ client_id: GDRIVE_CLIENT_ID, scope: GDRIVE_SCOPES, callback: (resp) => { if (resp.error) reject(new Error(resp.error)); else resolve(resp.access_token); } }); client.requestAccessToken({ prompt: '' }); }); }
 async function findOrCreateFile(token) { const q = encodeURIComponent(`name='${GDRIVE_FILE_NAME}' and trashed=false`); const r = await fetch(`https://www.googleapis.com/drive/v3/files?spaces=appDataFolder&q=${q}&fields=files(id,name)`, { headers: { Authorization: `Bearer ${token}` } }); const data = await r.json(); if (data.files?.length > 0) return data.files[0].id; const meta = { name: GDRIVE_FILE_NAME, parents: ['appDataFolder'] }; const form = new FormData(); form.append('metadata', new Blob([JSON.stringify(meta)], { type: 'application/json' })); form.append('file', new Blob(['{}'], { type: 'application/json' })); const cr = await fetch('https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id', { method: 'POST', headers: { Authorization: `Bearer ${token}` }, body: form }); return (await cr.json()).id; }
-async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); localStorage.setItem('_savedAt', data['_savedAt']); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
+async function saveToGDrive(token) { const fileId = await findOrCreateFile(token); const data = {}; LS_KEYS.forEach(k => { try { const v = localStorage.getItem(k); if (v) data[k] = v; } catch {} }); data['_savedAt'] = new Date().toISOString(); safeSetItem('_savedAt', data['_savedAt']); const form = new FormData(); form.append('metadata', new Blob([JSON.stringify({ name: GDRIVE_FILE_NAME })], { type: 'application/json' })); form.append('file', new Blob([JSON.stringify(data)], { type: 'application/json' })); await fetch(`https://www.googleapis.com/upload/drive/v3/files/${fileId}?uploadType=multipart`, { method: 'PATCH', headers: { Authorization: `Bearer ${token}` }, body: form }); return data['_savedAt']; }
 async function loadFromGDrive(token) {
   const fileId = await findOrCreateFile(token);
   const r = await fetch(`https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`, { headers: { Authorization: `Bearer ${token}` } });
@@ -2747,7 +2782,7 @@ async function loadFromGDrive(token) {
   // Safety: check Drive has meaningful data before loading
   const driveTxCount = (() => { try { return JSON.parse(data['ft_transactions'] || '[]').length; } catch { return 0; } })();
   if (driveTxCount === 0) return null; // Drive has no transactions - treat as empty
-  const localTs=localStorage.getItem('_savedAt')||'1970'; const driveTs=data['_savedAt']||'1970'; const driveNewer=new Date(driveTs)>new Date(localTs); LS_KEYS.forEach(k=>{try{if(!data[k])return;if(driveNewer){localStorage.setItem(k,data[k]);}else{const lv=localStorage.getItem(k);if(!lv||lv==='[]'||lv==='{}')localStorage.setItem(k,data[k]);}}catch{}}); if(driveNewer)localStorage.setItem('_savedAt',driveTs);
+  const localTs=localStorage.getItem('_savedAt')||'1970'; const driveTs=data['_savedAt']||'1970'; const driveNewer=new Date(driveTs)>new Date(localTs); LS_KEYS.forEach(k=>{try{if(!data[k])return;if(driveNewer){safeSetItem(k,data[k]);}else{const lv=localStorage.getItem(k);if(!lv||lv==='[]'||lv==='{}')safeSetItem(k,data[k]);}}catch{}}); if(driveNewer)safeSetItem('_savedAt',driveTs);
   return { savedAt: data['_savedAt'] || 'unknown', txCount: driveTxCount };
 }
 
@@ -2777,7 +2812,7 @@ function DriveSync() {
           if (localTx === 0) return;
           await saveToGDrive(tokenRef.current);
           const ts = new Date().toLocaleString('en-IE');
-          setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+          setLastSync(ts); safeSetItem('ft_lastDriveSync', ts);
           setMsg('Saved'); setStatus('saved');
           setTimeout(() => { setStatus('idle'); setMsg(''); }, 2000);
         } catch { /* silent */ }
@@ -2802,7 +2837,7 @@ function DriveSync() {
       const t = await getToken();
       await saveToGDrive(t);
       const ts = new Date().toLocaleString('en-IE');
-      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+      setLastSync(ts); safeSetItem('ft_lastDriveSync', ts);
       setStatus('saved'); setMsg(`Saved ${localTx} transactions`);
       setTimeout(() => { setStatus('idle'); setMsg(''); }, 3000);
     } catch(e) {
@@ -2830,9 +2865,9 @@ function DriveSync() {
         return;
       }
       // Apply Drive data to localStorage
-      LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
+      LS_KEYS.forEach(k => { try { if (data[k] !== undefined) safeSetItem(k, data[k]); } catch {} });
       const ts = new Date().toLocaleString('en-IE'); // always fresh timestamp on pull
-      setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+      setLastSync(ts); safeSetItem('ft_lastDriveSync', ts);
       setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions - reloading`);
       setTimeout(() => window.location.reload(), 800);
     } catch(e) {
@@ -2856,9 +2891,9 @@ function DriveSync() {
 
       if (driveTx > 0 && localTx === 0) {
         // Drive has data, local empty - pull from Drive
-        LS_KEYS.forEach(k => { try { if (data[k] !== undefined) localStorage.setItem(k, data[k]); } catch {} });
+        LS_KEYS.forEach(k => { try { if (data[k] !== undefined) safeSetItem(k, data[k]); } catch {} });
         const ts = new Date().toLocaleString('en-IE'); // always fresh timestamp on pull
-        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setLastSync(ts); safeSetItem('ft_lastDriveSync', ts);
         setStatus('loaded'); setMsg(`Loaded ${driveTx} transactions`);
         setTimeout(() => window.location.reload(), 800);
       } else if (localTx > 0 && driveTx === 0) {
@@ -2866,7 +2901,7 @@ function DriveSync() {
         setMsg(`Saving ${localTx} transactions to Drive...`);
         await saveToGDrive(t);
         const ts = new Date().toLocaleString('en-IE');
-        setLastSync(ts); localStorage.setItem('ft_lastDriveSync', ts);
+        setLastSync(ts); safeSetItem('ft_lastDriveSync', ts);
         setStatus('saved'); setMsg(`Saved ${localTx} transactions to Drive!`);
         setTimeout(() => { setStatus('idle'); setMsg(''); }, 4000);
       } else if (localTx > 0 && driveTx > 0) {
@@ -2922,7 +2957,7 @@ function AccountsTab({ transactions, debts }) {
   const [accounts, setAccounts] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_accounts") || "[]"); } catch { return []; } });
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", type: "bank", currency: "EUR", openingBalance: "0", note: "" });
-  useEffect(() => { try { localStorage.setItem("ft_accounts", JSON.stringify(accounts)); } catch {} }, [accounts]);
+  useEffect(() => { try { safeSetItem("ft_accounts", JSON.stringify(accounts)); } catch {} }, [accounts]);
 
   const TYPES = [
     { id: "bank", label: "Bank / Current", icon: "-" },
@@ -3037,7 +3072,7 @@ function GoalsTab() {
   const [goals, setGoals] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_goals") || "[]"); } catch { return []; } });
   const [showAdd, setShowAdd] = useState(false);
   const [form, setForm] = useState({ name: "", targetAmount: "", currentAmount: "0", targetDate: "", currency: "EUR", note: "" });
-  useEffect(() => { try { localStorage.setItem("ft_goals", JSON.stringify(goals)); } catch {} }, [goals]);
+  useEffect(() => { try { safeSetItem("ft_goals", JSON.stringify(goals)); } catch {} }, [goals]);
 
   const addGoal = () => {
     if (!form.name || !form.targetAmount) return;
@@ -3770,7 +3805,7 @@ function BudgetingTab({ transactions, overheadGroups, committed }) {
   const [period, setPeriod] = useState("thisMonth");
   const [budgets, setBudgets] = useState(() => { try { return JSON.parse(localStorage.getItem("ft_budgets") || "{}"); } catch { return {}; } });
   const [editingGroup, setEditingGroup] = useState(null);
-  useEffect(() => { try { localStorage.setItem("ft_budgets", JSON.stringify(budgets)); } catch {} }, [budgets]);
+  useEffect(() => { try { safeSetItem("ft_budgets", JSON.stringify(budgets)); } catch {} }, [budgets]);
   const { from, to, label: periodLabel } = useMemo(() => {
     const now = new Date();
     if (period === "thisMonth") return { from: new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0], to: new Date(now.getFullYear(), now.getMonth()+1, 0).toISOString().split("T")[0], label: now.toLocaleDateString("en-IE", { month: "long", year: "numeric" }) };
