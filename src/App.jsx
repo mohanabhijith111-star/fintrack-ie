@@ -1325,6 +1325,33 @@ export default function App() {
         .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
         .two-col{grid-template-columns:1fr !important;}
         .hide-mobile{display:none !important;}
+        .debt-card-grid{grid-template-columns:1fr !important;}
+        .debt-metrics{flex-wrap:wrap;gap:8px !important;}
+        .debt-metrics > div{min-width:calc(50% - 4px);}
+        .tx-row{grid-template-columns:auto 1fr auto !important;}
+        .tx-row .hide-xs{display:none !important;}
+      }
+      @media(max-width:390px){
+        .stat-grid{grid-template-columns:1fr !important;}
+        .debt-metrics > div{min-width:100%;}
+        .debt-card-actions{flex-direction:column;gap:4px !important;}
+        .main-content{padding:8px !important;}
+        .card-padding{padding:12px !important;}
+        .debt-card-header{flex-direction:column;align-items:flex-start !important;}
+        .amount-lg{font-size:16px !important;}
+      }
+      @media(min-width:769px) and (max-width:1024px){
+        .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
+        .two-col{grid-template-columns:1fr 1fr !important;}
+        .sidebar{width:180px !important;}
+        .debt-metrics > div{min-width:calc(33% - 8px);}
+      }
+        .mobile-nav{display:flex !important;}
+        .app-shell{flex-direction:column;}
+        .main-content{height:calc(100vh - 56px);overflow-y:auto;}
+        .stat-grid{grid-template-columns:repeat(2,1fr) !important;}
+        .two-col{grid-template-columns:1fr !important;}
+        .hide-mobile{display:none !important;}
       }
       @media(min-width:769px){.mobile-nav{display:none !important;}}
     `}</style>
@@ -2065,6 +2092,53 @@ export default function App() {
         {tab === "settings" && (
           <div style={{ display: "flex", flexDirection: "column", gap: 16, maxWidth: 700 }}>
 
+            {/* ── Storage Management ─────────────────────────────────────── */}
+            {(() => {
+              const usage = storageUsage || { percentage: 0, used: 0, limit: 5242880 };
+              const pct = usage.percentage || 0;
+              const usedMB = ((usage.used || 0) / (1024*1024)).toFixed(2);
+              const barColor = pct >= 95 ? T.red : pct >= 80 ? T.accent : T.green;
+              return (
+                <div style={{ ...S.card, padding: 20 }}>
+                  <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 4 }}>
+                    <div className="hn" style={{ fontSize: 15, fontWeight: 700 }}>Storage Management</div>
+                    {pct >= 80 && (
+                      <span style={{ fontSize: 11, fontWeight: 700, color: barColor, background: barColor + "20", padding: "2px 8px", borderRadius: 99, border: "1px solid " + barColor + "50" }}>
+                        {pct >= 95 ? "⛔ Critical" : "⚠️ Warning"}
+                      </span>
+                    )}
+                  </div>
+                  <div style={{ fontSize: 12, color: T.textDim, marginBottom: 14 }}>Local browser storage used by FinTrack IE.</div>
+                  <div style={{ marginBottom: 6, display: "flex", justifyContent: "space-between", fontSize: 12, color: T.textMid }}>
+                    <span>{usedMB} MB used</span>
+                    <span style={{ color: barColor, fontWeight: 700 }}>{pct}%</span>
+                  </div>
+                  <div style={{ height: 8, borderRadius: 99, background: T.surfaceHigh, overflow: "hidden", marginBottom: 16 }}>
+                    <div style={{ height: "100%", width: pct + "%", background: barColor, borderRadius: 99, transition: "width 0.4s" }} />
+                  </div>
+                  <div style={{ display: "flex", gap: 8, flexWrap: "wrap" }}>
+                    <button
+                      onClick={() => exportTransactionsCSV(transactions)}
+                      style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, backgroundColor: T.accent, color: T.bg, border: "none", borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>
+                      ⬇ Export Transactions CSV
+                    </button>
+                    <button
+                      onClick={() => exportBackupJSON({ ft_transactions: transactions, ft_debts: debts, ft_assets: assets, ft_committed: committed, ft_rules: rules })}
+                      style={{ padding: "8px 16px", fontSize: 12, fontWeight: 600, backgroundColor: T.surfaceHigh, color: T.text, border: "1px solid " + T.border, borderRadius: 6, cursor: "pointer", fontFamily: "inherit" }}>
+                      💾 Backup All Data (JSON)
+                    </button>
+                  </div>
+                  {pct >= 80 && (
+                    <div style={{ marginTop: 12, padding: "10px 14px", background: barColor + "15", border: "1px solid " + barColor + "40", borderRadius: 6, fontSize: 12, color: barColor }}>
+                      {pct >= 95
+                        ? "⛔ Storage is almost full. Export and clear old transactions to prevent data loss."
+                        : "⚠️ Storage is over 80% full. Consider exporting old transactions to free space."}
+                    </div>
+                  )}
+                </div>
+              );
+            })()}
+
             {/* Custom Overheads */}
             <div style={{ ...S.card, padding: 20 }}>
               <div className="hn" style={{ fontSize: 15, fontWeight: 700, marginBottom: 4 }}>Manage Overhead Categories</div>
@@ -2527,14 +2601,14 @@ function DebtCard({ debt, onChange, onDelete, transactions }) {
     <div style={{...S.card,overflow:'hidden'}}>
       {/* Header */}
       <div style={{padding:'16px 20px',borderBottom:editing||showHistory?'1px solid #252830':'none'}}>
-        <div style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
+        <div className="debt-card-header" style={{display:'flex',alignItems:'flex-start',justifyContent:'space-between',gap:12}}>
           <div style={{flex:1,minWidth:0}}>
             <div style={{display:'flex',alignItems:'center',gap:8,flexWrap:'wrap',marginBottom:4}}>
               <span className="hn" style={{fontSize:15,fontWeight:700,color:T.text}}>{debt.name}</span>
               <Badge color="dim">{debtTypeLabels[debt.type]||'Loan'}</Badge>
               {rate>0&&<Badge color="dim">{rate}% p.a.</Badge>}
             </div>
-            <div style={{display:'flex',gap:16,flexWrap:'wrap'}}>
+            <div className="debt-metrics" style={{display:'flex',gap:16,flexWrap:'wrap'}}>
               <div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Balance</div><div style={{fontSize:18,fontWeight:700,color:T.red}}>{fmt(balance,debt.currency)}</div><div style={{fontSize:10,color:T.textDim}}>as of {debt.balanceAsOf||'now'}</div></div>
               {monthlyPayment>0&&<div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Monthly</div><div style={{fontSize:16,fontWeight:600,color:T.accent}}>{fmt(monthlyPayment,debt.currency)}</div></div>}
               {payoffDate&&<div><div style={{fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>Payoff</div><div style={{fontSize:14,fontWeight:600,color:T.green}}>{payoffDate}</div></div>}
@@ -2594,11 +2668,16 @@ function DebtCard({ debt, onChange, onDelete, transactions }) {
                 <div style={{display:'grid',gridTemplateColumns:'80px 1fr 70px 70px 80px',gap:0,borderBottom:'1px solid #252830',padding:'6px 20px',fontSize:10,color:T.textDim,textTransform:'uppercase',letterSpacing:'0.06em'}}>
                   <span>Date</span><span>Description</span><span style={{textAlign:'right'}}>Amount</span>{rate>0&&<span style={{textAlign:'right'}}>Principal</span>}<span style={{textAlign:'right'}}>Balance</span>
                 </div>
-                {paymentsWithBalance.map(p=>(
-                  <div key={p.id} style={{display:'grid',gridTemplateColumns:'80px 1fr 70px 70px 80px',gap:0,padding:'8px 20px',borderBottom:'1px solid #1a1c24',alignItems:'center'}}>
-                    <span style={{fontSize:11,color:T.textDim}}>{p.date?new Date(p.date+'T12:00:00').toLocaleDateString('en-IE',{day:'numeric',month:'short',year:'2-digit'}):''}</span>
-                    <span style={{fontSize:11,color:T.text,overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap',paddingRight:8}}>{p.description||'Manual payment'}</span>
-                    <span style={{fontSize:11,fontWeight:600,color:T.red,textAlign:'right'}}>{fmt(p.amount,debt.currency)}</span>
+              {paymentsWithBalance.map(p => (
+                <div key={p.id} style={{ display:"grid", gridTemplateColumns:"90px 1fr 70px 70px 70px 70px", gap:6, padding:"7px 0", borderBottom:"1px solid "+T.border+"60", alignItems:"center", fontSize:11 }}>
+                  <div style={{color:T.textDim}}>{p.date}</div>
+                  <div style={{color:T.text,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{p.description||"Payment"}</div>
+                  <div style={{color:T.text,textAlign:"right",fontWeight:600}}>{fmt(p.amount,debt.currency)}</div>
+                  <div style={{color:T.green,textAlign:"right"}}>{fmt(p.principal,debt.currency)}</div>
+                  <div style={{color:T.red,textAlign:"right"}}>{fmt(p.interest,debt.currency)}</div>
+                  <div style={{color:T.textMid,textAlign:"right"}}>{fmt(p.balanceAfter,debt.currency)}</div>
+                </div>
+              ))}
                     {rate>0&&<span style={{fontSize:10,color:T.textMid,textAlign:'right'}}>{fmt(p.principal,debt.currency)}</span>}
                     <span style={{fontSize:11,color:T.textMid,textAlign:'right'}}>{fmt(p.balanceAfter,debt.currency)}</span>
                   </div>
